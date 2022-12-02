@@ -1,6 +1,8 @@
 [![Security Code Scan](website/images/logo.png)](https://security-code-scan.github.io)  
 *Vulnerability Patterns Detector for C# and VB.NET* - [Website](https://security-code-scan.github.io)  
 
+
+
 [![Build](https://github.com/security-code-scan/security-code-scan/actions/workflows/ci.yml/badge.svg)](https://github.com/security-code-scan/security-code-scan/actions/workflows/ci.yml)
 
 ### Downloading
