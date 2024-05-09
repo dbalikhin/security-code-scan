@@ -1,6 +1,5 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.FlowAnalysis;
@@ -9,6 +8,7 @@ using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.CopyAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 {
@@ -17,6 +17,8 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 
     internal partial class TaintedDataAnalysis : ForwardDataFlowAnalysis<TaintedDataAnalysisData, TaintedDataAnalysisContext, TaintedDataAnalysisResult, TaintedDataBlockAnalysisResult, TaintedDataAbstractValue>
     {
+        internal static readonly AbstractValueDomain<TaintedDataAbstractValue> ValueDomainInstance = TaintedDataAbstractValueDomain.Default;
+
         private TaintedDataAnalysis(TaintedDataAnalysisDomain analysisDomain, TaintedDataOperationVisitor operationVisitor)
             : base(analysisDomain, operationVisitor)
         {
@@ -98,7 +100,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             }
 
             TaintedDataAnalysisContext analysisContext = TaintedDataAnalysisContext.Create(
-                TaintedDataAbstractValueDomain.Default,
+                ValueDomainInstance,
                 wellKnownTypeProvider,
                 cfg,
                 containingMethod,

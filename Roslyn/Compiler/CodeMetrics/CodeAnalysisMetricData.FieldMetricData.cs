@@ -1,11 +1,9 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 #if HAS_IOPERATION
 
 using System;
 using System.Collections.Immutable;
-using System.Threading.Tasks;
-using Analyzer.Utilities;
 
 namespace Microsoft.CodeAnalysis.CodeMetrics
 {
@@ -26,16 +24,14 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
             {
             }
 
-            internal static async Task<FieldMetricData> ComputeAsync(IFieldSymbol field, CodeMetricsAnalysisContext context)
+            internal static FieldMetricData Compute(IFieldSymbol field, CodeMetricsAnalysisContext context)
             {
-                var wellKnownTypeProvider = WellKnownTypeProvider.GetOrCreate(context.Compilation);
-
                 var coupledTypesBuilder = ImmutableHashSet.CreateBuilder<INamedTypeSymbol>();
                 ImmutableArray<SyntaxReference> declarations = field.DeclaringSyntaxReferences;
-                long linesOfCode = await MetricsHelper.GetLinesOfCodeAsync(declarations, field, context).ConfigureAwait(false);
+                long linesOfCode = MetricsHelper.GetLinesOfCode(declarations, field, context);
                 (int cyclomaticComplexity, ComputationalComplexityMetrics computationalComplexityMetrics) =
-                    await MetricsHelper.ComputeCoupledTypesAndComplexityExcludingMemberDeclsAsync(declarations, field, coupledTypesBuilder, context).ConfigureAwait(false);
-                MetricsHelper.AddCoupledNamedTypes(coupledTypesBuilder, wellKnownTypeProvider, field.Type);
+                    MetricsHelper.ComputeCoupledTypesAndComplexityExcludingMemberDecls(declarations, field, coupledTypesBuilder, context);
+                MetricsHelper.AddCoupledNamedTypes(coupledTypesBuilder, context.WellKnownTypeProvider, field.Type);
                 int? depthOfInheritance = null;
                 int maintainabilityIndex = CalculateMaintainabilityIndex(computationalComplexityMetrics, cyclomaticComplexity);
                 MetricsHelper.RemoveContainingTypes(field, coupledTypesBuilder);

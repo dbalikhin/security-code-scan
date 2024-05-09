@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -63,6 +63,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             {
                 throw new ArgumentException("Can't specify constantArrayLengthMatcher unless taintConstantArray is true");
             }
+
             DependencyFullTypeNames = dependencyFullTypeNames ?? ImmutableArray<string>.Empty;
             AllProperitesAreTainted = false;
             AllFieldsAreTainted = false;
@@ -224,20 +225,17 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public override int GetHashCode()
         {
             var hashCode = new RoslynHashCode();
-            hashCode.Add(this.AllProperitesAreTainted.GetHashCode());
-            hashCode.Add(this.AllFieldsAreTainted.GetHashCode());
-            hashCode.Add(StringComparer.Ordinal.GetHashCode(this.FullTypeName));
-            HashUtilities.Combine(this.DependencyFullTypeNames, ref hashCode);
-            hashCode.Add(this.IsInterface.GetHashCode());
-            HashUtilities.Combine(this.TransferProperties, ref hashCode);
+            hashCode.Add(this.TaintConstantArray.GetHashCode());
             HashUtilities.Combine(this.TaintedProperties, ref hashCode);
-            HashUtilities.Combine(this.TaintedMethods, ref hashCode);
             HashUtilities.Combine(this.TaintedArguments, ref hashCode);
+            HashUtilities.Combine(this.TaintedMethods, ref hashCode);
             HashUtilities.Combine(this.TaintedMethodsNeedsPointsToAnalysis, ref hashCode);
             HashUtilities.Combine(this.TaintedMethodsNeedsValueContentAnalysis, ref hashCode);
             HashUtilities.Combine(this.TransferMethods, ref hashCode);
-            hashCode.Add(this.TaintConstantArray.GetHashCode());
-            hashCode.Add(this.ConstantArrayLengthMatcher?.GetHashCode());
+            HashUtilities.Combine(this.TransferProperties, ref hashCode);
+            HashUtilities.Combine(this.DependencyFullTypeNames, ref hashCode);
+            hashCode.Add(this.IsInterface.GetHashCode());
+            hashCode.Add(StringComparer.Ordinal.GetHashCode(this.FullTypeName));
             return hashCode.ToHashCode();
         }
 
@@ -249,20 +247,17 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public bool Equals(SourceInfo other)
         {
             return other != null
-                && this.AllProperitesAreTainted == other.AllProperitesAreTainted
-                && this.AllFieldsAreTainted == other.AllFieldsAreTainted
                 && this.FullTypeName == other.FullTypeName
-                && this.DependencyFullTypeNames == other.DependencyFullTypeNames
                 && this.IsInterface == other.IsInterface
-                && this.TransferProperties == other.TransferProperties
                 && this.TaintedProperties == other.TaintedProperties
-                && this.TaintedMethods == other.TaintedMethods
                 && this.TaintedArguments == other.TaintedArguments
+                && this.TaintedMethods == other.TaintedMethods
                 && this.TaintedMethodsNeedsPointsToAnalysis == other.TaintedMethodsNeedsPointsToAnalysis
                 && this.TaintedMethodsNeedsValueContentAnalysis == other.TaintedMethodsNeedsValueContentAnalysis
                 && this.TransferMethods == other.TransferMethods
-                && this.TaintConstantArray == other.TaintConstantArray
-                && this.ConstantArrayLengthMatcher == other.ConstantArrayLengthMatcher;
+                && this.TransferProperties == other.TransferProperties
+                && this.DependencyFullTypeNames == other.DependencyFullTypeNames
+                && this.TaintConstantArray == other.TaintConstantArray;
         }
     }
 }

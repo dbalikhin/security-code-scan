@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Concurrent;
@@ -19,7 +19,7 @@ namespace Analyzer.Utilities
         /// <summary>
         /// ConcurrentDictionary key for a null SymbolDisplayFormat.
         /// </summary>
-        private static readonly SymbolDisplayFormat NullSymbolDisplayFormat = new SymbolDisplayFormat();
+        private static readonly SymbolDisplayFormat NullSymbolDisplayFormat = new();
 
         /// <summary>
         /// Mapping of a symbol to its ToDisplayString().

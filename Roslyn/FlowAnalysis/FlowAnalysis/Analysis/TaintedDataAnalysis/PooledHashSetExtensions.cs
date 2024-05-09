@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -144,8 +144,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             string fullTypeName,
             bool isInterface,
             IEnumerable<string>? taintedProperties,
-            IEnumerable<string>? taintedMethods
-            )
+            IEnumerable<string>? taintedMethods)
         {
             SourceInfo metadata = new SourceInfo(
                 fullTypeName,
@@ -343,7 +342,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
                                 ?? ImmutableHashSet<(string, string)>.Empty))
                         ?.ToImmutableHashSet()
                     ?? ImmutableHashSet<(MethodMatcher, ImmutableHashSet<(string, string)>)>.Empty,
-                sanitizingMethodsNeedsValueContentAnalysis:
+                  sanitizingMethodsNeedsValueContentAnalysis:
                     sanitizingMethodsNeedsValueContentAnalysis
                         ?.Select(o =>
                             (

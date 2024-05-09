@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -35,7 +35,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ParameterValidationAnalys
             CancellationToken cancellationToken,
             PointsToAnalysisKind defaultPointsToAnalysisKind = PointsToAnalysisKind.PartialWithoutTrackingFieldsAndProperties,
             InterproceduralAnalysisKind interproceduralAnalysisKind = InterproceduralAnalysisKind.ContextSensitive,
-            uint defaultMaxInterproceduralMethodCallChain = 1, // By default, we only want to track method calls one level down.
+            uint defaultMaxInterproceduralMethodCallChain = 1,
             bool pessimisticAnalysis = false)
         {
             Debug.Assert(!analyzerOptions.IsConfiguredToSkipAnalysis(rule, owningSymbol, compilation, cancellationToken));

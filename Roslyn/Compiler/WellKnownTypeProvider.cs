@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Concurrent;
@@ -26,13 +26,13 @@ namespace Analyzer.Utilities
         {
             Compilation = compilation;
             _fullNameToTypeMap = new ConcurrentDictionary<string, INamedTypeSymbol?>(StringComparer.Ordinal);
-            _referencedAssemblies = new Lazy<ImmutableHashSet<IAssemblySymbol>>(
+            _referencedAssemblies = new Lazy<ImmutableArray<IAssemblySymbol>>(
                 () =>
                 {
-                    return ImmutableHashSet.Create<IAssemblySymbol>(
-                        Compilation.Assembly.Modules
-                            .SelectMany(m => m.ReferencedAssemblySymbols)
-                            .ToArray());
+                    return Compilation.Assembly.Modules
+                        .SelectMany(m => m.ReferencedAssemblySymbols)
+                        .Distinct<IAssemblySymbol>(SymbolEqualityComparer.Default)
+                        .ToImmutableArray();
                 },
                 LazyThreadSafetyMode.ExecutionAndPublication);
         }
@@ -55,7 +55,7 @@ namespace Analyzer.Utilities
         /// foreach (Compilation.Assembly.Modules)
         ///     foreach (Module.ReferencedAssemblySymbols)
         /// </remarks>
-        private readonly Lazy<ImmutableHashSet<IAssemblySymbol>> _referencedAssemblies;
+        private readonly Lazy<ImmutableArray<IAssemblySymbol>> _referencedAssemblies;
 
         /// <summary>
         /// Mapping of full name to <see cref="INamedTypeSymbol"/>.
@@ -84,7 +84,7 @@ namespace Analyzer.Utilities
         /// <param name="fullTypeName">Namespace + type name, e.g. "System.Exception".</param>
         /// <param name="namedTypeSymbol">Named type symbol, if any.</param>
         /// <returns>True if found in the compilation, false otherwise.</returns>
-        //[PerformanceSensitive("https://github.com/dotnet/roslyn-analyzers/issues/4893", AllowCaptures = false)]
+        [PerformanceSensitive("https://github.com/dotnet/roslyn-analyzers/issues/4893", AllowCaptures = false)]
         public bool TryGetOrCreateTypeByMetadataName(
             string fullTypeName,
             [NotNullWhen(returnValue: true)] out INamedTypeSymbol? namedTypeSymbol)
@@ -200,7 +200,8 @@ namespace Analyzer.Utilities
         {
             return typeSymbol != null
                 && typeSymbol.OriginalDefinition != null
-                && typeSymbol.OriginalDefinition.Equals(GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTask1))
+                && SymbolEqualityComparer.Default.Equals(typeSymbol.OriginalDefinition,
+                    GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTask1))
                 && typeSymbol is INamedTypeSymbol namedTypeSymbol
                 && namedTypeSymbol.TypeArguments.Length == 1
                 && typeArgumentPredicate(namedTypeSymbol.TypeArguments[0]);

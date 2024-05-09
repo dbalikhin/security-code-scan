@@ -1,6 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
-
-#if NET_ANALYZERS || TEXT_ANALYZERS
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Diagnostics;
 using System.Linq;
@@ -33,7 +31,7 @@ namespace Analyzer.Utilities
             var (defaultSeverity, enabledByDefault) = GetDefaultSeverityAndEnabledByDefault(ruleLevel);
 
 #pragma warning disable CA1308 // Normalize strings to uppercase - use lower case ID in help link
-            var helpLink = $"https://docs.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/{id.ToLowerInvariant()}";
+            var helpLink = $"https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/{id.ToLowerInvariant()}";
 #pragma warning restore CA1308 // Normalize strings to uppercase
 
             var customTags = GetDefaultCustomTags(isPortedFxCopRule, isDataflowRule, isEnabledByDefaultInAggressiveMode);
@@ -60,6 +58,7 @@ namespace Analyzer.Utilities
                     RuleLevel.IdeHidden_BulkConfigurable => (DiagnosticSeverity.Hidden, true),
                     RuleLevel.Disabled => (DiagnosticSeverity.Warning, false),
                     RuleLevel.CandidateForRemoval => (DiagnosticSeverity.Warning, false),
+                    RuleLevel.BuildError => (DiagnosticSeverity.Error, true),
                     _ => throw new System.NotImplementedException(),
                 };
             }
@@ -85,5 +84,3 @@ namespace Analyzer.Utilities
         }
     }
 }
-
-#endif

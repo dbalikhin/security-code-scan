@@ -62,7 +62,7 @@ public class Vulnerable
     => Response.Write(Request.Params[0]);
 }
 ";
-            await VerifyCSharpDiagnostic(cSharpTest, Expected.WithLocation(10, 23)).ConfigureAwait(false);
+            await VerifyCSharpDiagnostic(cSharpTest, Expected.WithLocation(10, 8)).ConfigureAwait(false);
         }
 
         [TestCategory("Detect")]

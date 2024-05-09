@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.Linq;
 
 namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.CopyAnalysis
 {
+    using static Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.CopyAnalysis.CopyAnalysis;
     using CoreCopyAnalysisData = DictionaryAnalysisData<AnalysisEntity, CopyAbstractValue>;
 
     /// <summary>
@@ -38,6 +39,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.CopyAnalysis
             AssertValidCopyAnalysisData();
         }
 
+        protected override AbstractValueDomain<CopyAbstractValue> ValueDomain => ValueDomainInstance;
         public override AnalysisEntityBasedPredicateAnalysisData<CopyAbstractValue> Clone() => new CopyAnalysisData(this);
 
         public override int Compare(AnalysisEntityBasedPredicateAnalysisData<CopyAbstractValue> other, MapAbstractDomain<AnalysisEntity, CopyAbstractValue> coreDataAnalysisDomain)

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -125,7 +125,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         private readonly Dictionary<IMethodSymbol, ControlFlowGraph?>? _interproceduralMethodToCfgMap;
         #endregion
 
-        protected abstract TAbstractAnalysisValue GetAbstractDefaultValue(ITypeSymbol type);
+        protected abstract TAbstractAnalysisValue GetAbstractDefaultValue(ITypeSymbol? type);
         protected virtual TAbstractAnalysisValue GetAbstractDefaultValueForCatchVariable(ICatchClauseOperation catchClause) => ValueDomain.UnknownOrMayBeValue;
         protected abstract bool HasAnyAbstractValue(TAnalysisData data);
         protected abstract void SetValueForParameterOnEntry(IParameterSymbol parameter, AnalysisEntity analysisEntity, ArgumentInfo<TAbstractAnalysisValue>? assignedValue);
@@ -164,6 +164,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         protected Func<TAnalysisContext, TAnalysisResult?> TryGetOrComputeAnalysisResult
             => DataFlowAnalysisContext.TryGetOrComputeAnalysisResult;
         internal bool ExecutingExceptionPathsAnalysisPostPass { get; set; }
+        internal virtual bool SkipExceptionPathsAnalysisPostPass => false;
 
         protected TAnalysisData CurrentAnalysisData
         {
@@ -250,7 +251,11 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             ContractNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemDiagnosticContractsContract);
             IDisposableNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIDisposable);
             IAsyncDisposableNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIAsyncDisposable);
+            ConfiguredAsyncDisposable = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemRuntimeCompilerServicesConfiguredAsyncDisposable);
+            ConfiguredValueTaskAwaitable = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemRuntimeCompilerServicesConfiguredValueTaskAwaitable);
             TaskNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTask);
+            TaskAsyncEnumerableExtensions = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTaskAsyncEnumerableExtensions);
+            MemoryStreamNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIOMemoryStream);
             ValueTaskNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksValueTask);
             GenericTaskNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTask1);
             MonitorNamedType = WellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingMonitor);
@@ -321,7 +326,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                 DataFlowAnalysisContext.WellKnownTypeProvider,
                 getPointsToAbstractValue: HasPointsToAnalysisResult ?
                     GetPointsToAbstractValue :
-                    (Func<IOperation, PointsToAbstractValue>?)null,
+                    null,
                 getIsInsideAnonymousObjectInitializer: () => IsInsideAnonymousObjectInitializer,
                 getIsLValueFlowCapture: IsLValueFlowCapture,
                 containingTypeSymbol: analysisContext.OwningSymbol.ContainingType,
@@ -455,6 +460,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     {
                         MergeAnalysisDataFromUnhandledThrowOperations(caughtExceptionType: null);
                     }
+
                     break;
             }
 
@@ -738,7 +744,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                 if (branch.BranchValue.Type?.SpecialType == SpecialType.System_Boolean &&
                     branch.BranchValue.ConstantValue.HasValue)
                 {
-                    var alwaysTrue = (bool)branch.BranchValue.ConstantValue.Value;
+                    var alwaysTrue = (bool)branch.BranchValue.ConstantValue.Value!;
                     if (alwaysTrue && branch.ControlFlowConditionKind == ControlFlowConditionKind.WhenFalse ||
                         !alwaysTrue && branch.ControlFlowConditionKind == ControlFlowConditionKind.WhenTrue)
                     {
@@ -827,8 +833,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             // If so, we return the abstract value for the task wrapping the underlying return value.
             if (OwningSymbol is IMethodSymbol method &&
                 method.IsAsync &&
-                method.ReturnType.OriginalDefinition.Equals(GenericTaskNamedType) &&
-                !method.ReturnType.Equals(returnValueOperation.Type))
+                SymbolEqualityComparer.Default.Equals(method.ReturnType.OriginalDefinition, GenericTaskNamedType) &&
+                !SymbolEqualityComparer.Default.Equals(method.ReturnType, returnValueOperation.Type))
             {
                 var location = AbstractLocation.CreateAllocationLocation(returnValueOperation, method.ReturnType, DataFlowAnalysisContext.InterproceduralAnalysisData?.CallStack);
                 implicitTaskPointsToValue = PointsToAbstractValue.Create(location, mayBeNull: false);
@@ -840,8 +846,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         protected virtual void HandlePossibleThrowingOperation(IOperation operation)
         {
-            Debug.Assert(DataFlowAnalysisContext.ExceptionPathsAnalysis);
             Debug.Assert(ExecutingExceptionPathsAnalysisPostPass);
+            Debug.Assert(!SkipExceptionPathsAnalysisPostPass);
 
             // Bail out if we are not analyzing an interprocedural call and there is no
             // tracked analysis data.
@@ -879,7 +885,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     break;
 
                 case IObjectCreationOperation objectCreation:
-                    if (objectCreation.Constructor.IsImplicitlyDeclared)
+                    if (objectCreation.Constructor?.IsImplicitlyDeclared == true)
                     {
                         // Implicitly generated constructor should not throw.
                         return;
@@ -920,8 +926,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         protected virtual TAnalysisData GetMergedAnalysisDataForPossibleThrowingOperation(TAnalysisData? existingData, IOperation operation)
         {
-            Debug.Assert(DataFlowAnalysisContext.ExceptionPathsAnalysis);
             Debug.Assert(ExecutingExceptionPathsAnalysisPostPass);
+            Debug.Assert(!SkipExceptionPathsAnalysisPostPass);
 
             return existingData == null ?
                 GetClonedCurrentAnalysisData() :
@@ -968,7 +974,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         private bool IsContractCheckArgument(IArgumentOperation operation)
             => operation.Parent is IInvocationOperation invocation &&
                invocation.Arguments[0] == operation &&
-               (IsDebugAssertMethod(invocation.TargetMethod) || IsContractCheckMethod(invocation.TargetMethod));
+               (IsAnyDebugAssertMethod(invocation.TargetMethod) || IsContractCheckMethod(invocation.TargetMethod));
 
         private bool IsContractCheckMethod(IMethodSymbol method)
         {
@@ -991,11 +997,19 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             return false;
         }
 
-        private bool IsDebugAssertMethod(IMethodSymbol method)
-            => Equals(method, DebugAssertMethod);
+        /// <summary>
+        /// Checks if the method is an overload of the <see cref="Debug.Assert(bool)"/> method.
+        /// </summary>
+        /// <param name="method">The IMethodSymbol to test.</param>
+        /// <returns>True if the method is an overlaod of the <see cref="Debug.Assert(bool)"/> method.</returns>
+        private bool IsAnyDebugAssertMethod(IMethodSymbol method) =>
+            DebugAssertMethod != null &&
+            method.ContainingSymbol.Equals(DebugAssertMethod.ContainingSymbol, SymbolEqualityComparer.Default) &&
+            method.Name == DebugAssertMethod.Name &&
+            method.ReturnType == DebugAssertMethod.ReturnType;
 
         protected bool IsAnyAssertMethod(IMethodSymbol method)
-            => IsDebugAssertMethod(method) || IsContractCheckMethod(method);
+            => IsAnyDebugAssertMethod(method) || IsContractCheckMethod(method);
 
         #region Helper methods to get or cache analysis data for visited operations.
 
@@ -1132,7 +1146,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             }
         }
 
-        protected bool TryGetPointsToAbstractValueAtEntryBlockEnd(AnalysisEntity analysisEntity, out PointsToAbstractValue pointsToAbstractValue)
+        protected bool TryGetPointsToAbstractValueAtEntryBlockEnd(AnalysisEntity analysisEntity, [NotNullWhen(true)] out PointsToAbstractValue? pointsToAbstractValue)
         {
             Debug.Assert(CurrentBasicBlock.Kind == BasicBlockKind.Entry);
             RoslynDebug.Assert(DataFlowAnalysisContext.PointsToAnalysisResult != null);
@@ -1145,7 +1159,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         {
             RoslynDebug.Assert(DataFlowAnalysisContext.PointsToAnalysisResult != null);
             var inputData = DataFlowAnalysisContext.PointsToAnalysisResult[CurrentBasicBlock].Data;
-            if (inputData.TryGetValue(analysisEntity, out PointsToAbstractValue pointsToAbstractValue))
+            if (inputData.TryGetValue(analysisEntity, out PointsToAbstractValue? pointsToAbstractValue))
             {
                 nullAbstractValue = pointsToAbstractValue.NullState;
                 return true;
@@ -1159,7 +1173,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         {
             RoslynDebug.Assert(DataFlowAnalysisContext.PointsToAnalysisResult != null);
             var inputData = DataFlowAnalysisContext.PointsToAnalysisResult.MergedStateForUnhandledThrowOperations?.Data;
-            if (inputData == null || !inputData.TryGetValue(analysisEntity, out PointsToAbstractValue pointsToAbstractValue))
+            if (inputData == null || !inputData.TryGetValue(analysisEntity, out PointsToAbstractValue? pointsToAbstractValue))
             {
                 nullAbstractValue = NullAbstractValue.MaybeNull;
                 return false;
@@ -1252,29 +1266,32 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                 }
 
                 // Handle is pattern operations with constant pattern.
-                if (operation is IIsPatternOperation patternOperation &&
-                    patternOperation.Pattern is IConstantPatternOperation constantPattern)
+                if (operation is IIsPatternOperation isPatternOperation)
                 {
-                    if (constantPattern.Value.ConstantValue.HasValue)
-                    {
-                        if (constantPattern.Value.ConstantValue.Value == null)
-                        {
-                            switch (pointsToValue.NullState)
-                            {
-                                case NullAbstractValue.Null:
-                                    inference.AlwaysSucceed = true;
-                                    break;
+                    IPatternOperation patternOperation = isPatternOperation.Pattern;
+                    bool direct = true;
 
-                                case NullAbstractValue.NotNull:
-                                    inference.AlwaysFail = true;
-                                    break;
-                            }
+                    if (patternOperation is INegatedPatternOperation negatedPattern)
+                    {
+                        patternOperation = negatedPattern.Pattern;
+                        direct = false;
+                    }
+
+                    if (patternOperation is IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: null } })
+                    {
+                        switch (pointsToValue.NullState)
+                        {
+                            case NullAbstractValue.Null:
+                                inference.AlwaysSucceed = direct;
+                                break;
+
+                            case NullAbstractValue.NotNull:
+                                inference.AlwaysFail = direct;
+                                break;
                         }
 
                         return true;
                     }
-
-                    return false;
                 }
 
                 if (targetType == null)
@@ -1543,11 +1560,20 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     switch (isPatternOperation.Pattern.Kind)
                     {
                         case OperationKind.DeclarationPattern:
-                            // Set predicated null/non-null value for declared pattern variable, i.e. for 'd' in "c is D d".
-                            predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Pattern, equals: FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse, targetAnalysisData: targetAnalysisData);
+                            if (!((IDeclarationPatternOperation)isPatternOperation.Pattern).MatchesNull)
+                            {
+                                // Set predicated null/non-null value for declared pattern variable, i.e. for 'd' in "c is D d".
+                                predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Pattern, equals: FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse, targetAnalysisData: targetAnalysisData);
+                            }
 
-                            // Also set the predicated value for pattern value for true branch, i.e. for 'c' in "c is D d".
-                            goto case OperationKind.DiscardPattern;
+                            // Also set the predicated value for pattern value for true branch, i.e. for 'c' in "c is D d",
+                            // while explicitly ignore the returned 'predicateValueKind'.
+                            if (FlowBranchConditionKind == ControlFlowConditionKind.WhenTrue)
+                            {
+                                _ = SetValueForIsNullComparisonOperator(isPatternOperation.Value, equals: false, targetAnalysisData: targetAnalysisData);
+                            }
+
+                            break;
 
                         case OperationKind.DiscardPattern:
                         case OperationKind.RecursivePattern:
@@ -1565,46 +1591,52 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                                 equals: FlowBranchConditionKind == ControlFlowConditionKind.WhenTrue, isReferenceEquality: false, targetAnalysisData: targetAnalysisData);
                             break;
 
-                        default:
-                            // TODO: Remove the below string based checks when we move to Microsoft.CodeAnalysis 3.7 or later.
-                            // TODO: File a tracking bug.
-                            var kindStr = isPatternOperation.Pattern.Kind.ToString();
-                            switch (kindStr)
+                        case OperationKind.NegatedPattern:
+                            var negatedPattern = (INegatedPatternOperation)isPatternOperation.Pattern;
+                            if (negatedPattern.Pattern is IConstantPatternOperation negatedConstantPattern)
                             {
-                                case "NegatedPattern":
-                                    if (isPatternOperation.Pattern.Children.FirstOrDefault() is IPatternOperation negatedPattern)
-                                    {
-                                        if (negatedPattern is IConstantPatternOperation negatedConstantPattern)
-                                        {
-                                            predicateValueKind = SetValueForEqualsOrNotEqualsComparisonOperator(isPatternOperation.Value, negatedConstantPattern.Value,
-                                                equals: FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse, isReferenceEquality: false, targetAnalysisData: targetAnalysisData);
-                                        }
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        goto default;
-                                    }
-
-                                case "RelationalPattern":
-                                    // For the true branch, set the pattern operation value to NotNull.
-                                    if (FlowBranchConditionKind == ControlFlowConditionKind.WhenTrue)
-                                    {
-                                        predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Value, equals: false, targetAnalysisData: targetAnalysisData);
-                                    }
-                                    break;
-
-                                case "BinaryPattern":
-                                    // These high level patterns should not be present in the lowered CFG: https://github.com/dotnet/roslyn/issues/47068
-                                    predicateValueKind = PredicateValueKind.Unknown;
-                                    break;
-
-                                default:
-                                    Debug.Fail($"Unknown pattern kind '{isPatternOperation.Pattern.Kind}'");
-                                    predicateValueKind = PredicateValueKind.Unknown;
-                                    break;
+                                predicateValueKind = SetValueForEqualsOrNotEqualsComparisonOperator(isPatternOperation.Value, negatedConstantPattern.Value,
+                                    equals: FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse, isReferenceEquality: false, targetAnalysisData: targetAnalysisData);
                             }
 
+                            break;
+
+                        case OperationKind.RelationalPattern:
+                            // For the true branch, set the pattern operation value to NotNull.
+                            if (FlowBranchConditionKind == ControlFlowConditionKind.WhenTrue)
+                            {
+                                predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Value, equals: false, targetAnalysisData: targetAnalysisData);
+                            }
+
+                            break;
+
+                        case OperationKind.BinaryPattern:
+                            // These high level patterns should not be present in the lowered CFG: https://github.com/dotnet/roslyn/issues/47068
+                            predicateValueKind = PredicateValueKind.Unknown;
+
+                            // We special case common null check to reduce false positives. But this implementation for BinaryPattern is very incomplete.
+                            if (FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse)
+                            {
+                                var binaryPattern = (IBinaryPatternOperation)isPatternOperation.Pattern;
+                                if (IsNotNullWhenFalse(binaryPattern))
+                                {
+                                    predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Value, equals: false, targetAnalysisData: targetAnalysisData);
+                                }
+                            }
+                            else if (FlowBranchConditionKind == ControlFlowConditionKind.WhenTrue)
+                            {
+                                var binaryPattern = (IBinaryPatternOperation)isPatternOperation.Pattern;
+                                if (IsNotNullWhenTrue(binaryPattern))
+                                {
+                                    predicateValueKind = SetValueForIsNullComparisonOperator(isPatternOperation.Value, equals: false, targetAnalysisData: targetAnalysisData);
+                                }
+                            }
+
+                            break;
+
+                        default:
+                            Debug.Fail($"Unknown pattern kind '{isPatternOperation.Pattern.Kind}'");
+                            predicateValueKind = PredicateValueKind.Unknown;
                             break;
                     }
 
@@ -1659,7 +1691,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
                 case IInvocationOperation invocation:
                     // Predicate analysis for different equality comparison methods and argument null check methods.
-                    if (invocation.Type.SpecialType != SpecialType.System_Boolean)
+                    if (invocation.Type?.SpecialType != SpecialType.System_Boolean)
                     {
                         return;
                     }
@@ -1737,7 +1769,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
                 foreach (var interfaceType in methodSymbol.ContainingType.AllInterfaces)
                 {
-                    if (interfaceType.OriginalDefinition.Equals(GenericIEquatableNamedType))
+                    if (SymbolEqualityComparer.Default.Equals(interfaceType.OriginalDefinition, GenericIEquatableNamedType))
                     {
                         var equalsMember = interfaceType.GetMembers("Equals").OfType<IMethodSymbol>().FirstOrDefault();
                         if (equalsMember != null && methodSymbol.IsOverrideOrImplementationOfInterfaceMember(equalsMember))
@@ -1745,6 +1777,42 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                             return true;
                         }
                     }
+                }
+
+                return false;
+            }
+
+            bool IsNotNullWhenFalse(IOperation operation)
+            {
+                if (operation is IConstantPatternOperation constant && constant.Value.ConstantValue.HasValue && constant.Value.ConstantValue.Value is null)
+                {
+                    // This is a null check. So we are not null on the false branch.
+                    return true;
+                }
+
+                if (operation is IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } binaryOrOperation)
+                {
+                    // Example: if (c is null or "")
+                    // The whole operation is not null when false, because one of the OR branches is not null when false.
+                    return IsNotNullWhenFalse(binaryOrOperation.LeftPattern) || IsNotNullWhenFalse(binaryOrOperation.RightPattern);
+                }
+
+                return false;
+            }
+
+            bool IsNotNullWhenTrue(IOperation operation)
+            {
+                if (operation is INegatedPatternOperation negated && negated.Pattern is IConstantPatternOperation constant && constant.Value.ConstantValue.HasValue && constant.Value.ConstantValue.Value is null)
+                {
+                    // This is a not null check. So we are not null on the true branch.
+                    return true;
+                }
+
+                if (operation is IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.And } binaryOrOperation)
+                {
+                    // Example: if (c is not null and "")
+                    // The whole operation is not null when true, because one of the AND branches is not null when true.
+                    return IsNotNullWhenTrue(binaryOrOperation.LeftPattern) || IsNotNullWhenTrue(binaryOrOperation.RightPattern);
                 }
 
                 return false;
@@ -1787,7 +1855,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             var rightType = operation.RightOperand.Type;
             var rightConstantValueOpt = operation.RightOperand.ConstantValue;
             var isReferenceEquality = operation.OperatorMethod == null &&
-                operation.Type.SpecialType == SpecialType.System_Boolean &&
+                operation.Type?.SpecialType == SpecialType.System_Boolean &&
                 leftType != null &&
                 !leftType.HasValueCopySemantics() &&
                 rightType != null &&
@@ -1953,7 +2021,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         private void ResetValueTypeInstanceAnalysisData(IOperation operation)
         {
             Debug.Assert(HasPointsToAnalysisResult);
-            Debug.Assert(operation.Type.HasValueCopySemantics());
+            Debug.Assert(operation.Type!.HasValueCopySemantics());
 
             if (AnalysisEntityFactory.TryCreate(operation, out var analysisEntity))
             {
@@ -1972,7 +2040,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         private void ResetReferenceTypeInstanceAnalysisData(IOperation operation)
         {
             Debug.Assert(HasPointsToAnalysisResult);
-            Debug.Assert(!operation.Type.HasValueCopySemantics());
+            Debug.Assert(!operation.Type!.HasValueCopySemantics());
 
             var pointsToValue = GetPointsToAbstractValue(operation);
             if (pointsToValue.Locations.IsEmpty)
@@ -2135,7 +2203,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             IOperation originalOperation,
             TAbstractAnalysisValue defaultValue,
             bool isLambdaOrLocalFunction,
-            out bool wasAnalyzed)
+            out bool wasAnalyzed,
+            CancellationToken cancellationToken = default)
         {
             wasAnalyzed = false;
 
@@ -2145,7 +2214,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             // Bail out if configured not to execute interprocedural analysis.
             var skipInterproceduralAnalysis = !isLambdaOrLocalFunction && InterproceduralAnalysisKind == InterproceduralAnalysisKind.None ||
                 DataFlowAnalysisContext.InterproceduralAnalysisPredicate?.SkipInterproceduralAnalysis(invokedMethod, isLambdaOrLocalFunction) == true ||
-                DataFlowAnalysisContext.AnalyzerOptions.IsConfiguredToSkipAnalysis(s_dummyDataflowAnalysisDescriptor, invokedMethod, OwningSymbol, WellKnownTypeProvider.Compilation, CancellationToken.None);
+                DataFlowAnalysisContext.AnalyzerOptions.IsConfiguredToSkipAnalysis(s_dummyDataflowAnalysisDescriptor, invokedMethod, OwningSymbol, WellKnownTypeProvider.Compilation, cancellationToken);
 
             // Also bail out for non-source methods and methods where we are not sure about the actual runtime target method.
             if (skipInterproceduralAnalysis ||
@@ -2167,7 +2236,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             }
 
             // Check if we are already at the maximum allowed interprocedural call chain length.
-            int currentMethodCallCount = currentMethodsBeingAnalyzed.Where(m => !(m.OwningSymbol is IMethodSymbol ms && ms.IsLambdaOrLocalFunctionOrDelegate())).Count();
+            int currentMethodCallCount = currentMethodsBeingAnalyzed.Count(m => !(m.OwningSymbol is IMethodSymbol ms && ms.IsLambdaOrLocalFunctionOrDelegate()));
             int currentLambdaOrLocalFunctionCallCount = currentMethodsBeingAnalyzed.Count - currentMethodCallCount;
 
             if (currentMethodCallCount >= MaxInterproceduralMethodCallChain ||
@@ -2267,7 +2336,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     // Implement Non-context sensitive interprocedural analysis to
                     // merge the relevant data from invoked method's analysis result into CurrentAnalysisData.
                     // For now, retain the original logic of resetting the analysis data.
-                    ResetAnalysisData();
+                    ResetAnalysisData(hasEscapedLambdaOrLocalFunctions: false);
                 }
             }
             finally
@@ -2297,12 +2366,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             // Local functions
             TAbstractAnalysisValue ResetAnalysisDataAndReturnDefaultValue()
             {
-                ResetAnalysisData();
-                MarkEscapedLambdasAndLocalFunctionsFromArguments();
+                var hasEscapes = MarkEscapedLambdasAndLocalFunctionsFromArguments();
+                ResetAnalysisData(hasEscapes);
                 return defaultValue;
             }
 
-            void ResetAnalysisData()
+            void ResetAnalysisData(bool hasEscapedLambdaOrLocalFunctions)
             {
                 // Interprocedural analysis did not succeed, so we need to conservatively reset relevant analysis data.
                 if (!PessimisticAnalysis)
@@ -2311,7 +2380,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     return;
                 }
 
-                if (isLambdaOrLocalFunction)
+                if (isLambdaOrLocalFunction || hasEscapedLambdaOrLocalFunctions)
                 {
                     // For local/lambda cases, we reset all analysis data.
                     ResetCurrentAnalysisData();
@@ -2321,27 +2390,40 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     // For regular invocation cases, we reset instance analysis data and argument data.
                     // Note that arguments are reset later by processing '_pendingArgumentsToReset'.
                     ResetInstanceAnalysisData(instanceReceiver);
-                    Debug.Assert(arguments.All(arg => _pendingArgumentsToReset.Contains(arg)));
+                    Debug.Assert(arguments.All(_pendingArgumentsToReset.Contains));
                 }
             }
 
-            void MarkEscapedLambdasAndLocalFunctionsFromArguments()
+            bool MarkEscapedLambdasAndLocalFunctionsFromArguments()
             {
-                if (!IsPointsToAnalysis)
-                {
-                    // Only mark escaped lambdas and local functions for points to analysis.
-                    return;
-                }
-
+                var hasEscapes = false;
                 foreach (var argument in arguments)
                 {
-                    if (argument.Parameter.Type.TypeKind == TypeKind.Delegate ||
-                        argument.Parameter.Type.SpecialType == SpecialType.System_Object)
+                    if (argument.Parameter?.Type.TypeKind == TypeKind.Delegate ||
+                        argument.Parameter?.Type.SpecialType == SpecialType.System_Object)
                     {
-                        var pointsToValue = GetPointsToAbstractValue(argument);
-                        MarkEscapedLambdasAndLocalFunctions(pointsToValue);
+                        if (!IsPointsToAnalysis)
+                        {
+                            // For non-points to analysis, pessimistically assume delegate arguments
+                            // lead to escaped lambda or local function target which may get invoked.
+                            if (argument.Parameter.Type.TypeKind == TypeKind.Delegate)
+                            {
+                                hasEscapes = true;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // For points to analysis, we try to compute the target lambda or local function
+                            // to determine if we have an escape.
+                            var pointsToValue = GetPointsToAbstractValue(argument);
+                            if (MarkEscapedLambdasAndLocalFunctions(pointsToValue))
+                                hasEscapes = true;
+                        }
                     }
                 }
+
+                return hasEscapes;
             }
 
             InterproceduralAnalysisData<TAnalysisData, TAnalysisContext, TAbstractAnalysisValue> ComputeInterproceduralAnalysisData()
@@ -2452,7 +2534,11 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                             argumentValue = ValueDomain.UnknownOrMayBeValue;
                         }
 
-                        builder.Add(GetMappedParameterForArgument(argument), new ArgumentInfo<TAbstractAnalysisValue>(argument, argumentEntity, instanceLocation, argumentValue));
+                        if (argument.Parameter != null)
+                        {
+                            builder.Add(GetMappedParameterForArgument(argument), new ArgumentInfo<TAbstractAnalysisValue>(argument, argumentEntity, instanceLocation, argumentValue));
+                        }
+
                         _pendingArgumentsToReset.Remove(argument);
                     }
 
@@ -2461,7 +2547,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     // Local function
                     IParameterSymbol GetMappedParameterForArgument(IArgumentOperation argumentOperation)
                     {
-                        if (argumentOperation.Parameter.ContainingSymbol is IMethodSymbol method &&
+                        if (argumentOperation.Parameter!.ContainingSymbol is IMethodSymbol method &&
                             method.MethodKind == MethodKind.DelegateInvoke)
                         {
                             // Parameter associated with IArgumentOperation for delegate invocations
@@ -2679,7 +2765,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             return ValueDomain.UnknownOrMayBeValue;
         }
 
-        public override TAbstractAnalysisValue Visit(IOperation operation, object? argument)
+        public override TAbstractAnalysisValue Visit(IOperation? operation, object? argument)
         {
             if (operation != null)
             {
@@ -2725,7 +2811,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             try
             {
                 StackGuard.EnsureSufficientExecutionStack(_recursionDepth);
-                return operation.Accept(this, argument!);
+                return operation.Accept(this, argument!)!;
             }
             finally
             {
@@ -2748,7 +2834,15 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             TAbstractAnalysisValue targetValue = Visit(operation.Target, argument);
             TAbstractAnalysisValue assignedValue = Visit(operation.Value, argument);
             var value = ComputeValueForCompoundAssignment(operation, targetValue, assignedValue, operation.Target.Type, operation.Value.Type);
-            SetAbstractValueForAssignment(operation.Target, operation.Value, value);
+            if (operation.Target is IFlowCaptureReferenceOperation flowCaptureReference)
+            {
+                HandleFlowCaptureReferenceAssignment(flowCaptureReference, operation.Value, value);
+            }
+            else
+            {
+                SetAbstractValueForAssignment(operation.Target, operation.Value, value);
+            }
+
             return value;
         }
 
@@ -2756,8 +2850,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             ICompoundAssignmentOperation operation,
             TAbstractAnalysisValue targetValue,
             TAbstractAnalysisValue assignedValue,
-            ITypeSymbol targetType,
-            ITypeSymbol assignedValueType)
+            ITypeSymbol? targetType,
+            ITypeSymbol? assignedValueType)
         {
             return ValueDomain.UnknownOrMayBeValue;
         }
@@ -2802,7 +2896,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             var arrayCreation = operation.GetAncestor<IArrayCreationOperation>(OperationKind.ArrayCreation);
             if (arrayCreation != null)
             {
-                var elementType = ((IArrayTypeSymbol)arrayCreation.Type).ElementType;
+                var elementType = ((IArrayTypeSymbol)arrayCreation.Type!).ElementType;
                 for (int index = 0; index < operation.ElementValues.Length; index++)
                 {
                     var abstractIndex = AbstractIndex.Create(index);
@@ -2821,55 +2915,55 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitLocalReference(ILocalReferenceOperation operation, object? argument)
         {
-            var value = base.VisitLocalReference(operation, argument);
+            var value = base.VisitLocalReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitParameterReference(IParameterReferenceOperation operation, object? argument)
         {
-            var value = base.VisitParameterReference(operation, argument);
+            var value = base.VisitParameterReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitArrayElementReference(IArrayElementReferenceOperation operation, object? argument)
         {
-            var value = base.VisitArrayElementReference(operation, argument);
+            var value = base.VisitArrayElementReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitDynamicMemberReference(IDynamicMemberReferenceOperation operation, object? argument)
         {
-            var value = base.VisitDynamicMemberReference(operation, argument);
+            var value = base.VisitDynamicMemberReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitEventReference(IEventReferenceOperation operation, object? argument)
         {
-            var value = base.VisitEventReference(operation, argument);
+            var value = base.VisitEventReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitFieldReference(IFieldReferenceOperation operation, object? argument)
         {
-            var value = base.VisitFieldReference(operation, argument);
+            var value = base.VisitFieldReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitMethodReference(IMethodReferenceOperation operation, object? argument)
         {
-            var value = base.VisitMethodReference(operation, argument);
+            var value = base.VisitMethodReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitPropertyReference(IPropertyReferenceOperation operation, object? argument)
         {
-            var value = base.VisitPropertyReference(operation, argument);
+            var value = base.VisitPropertyReference(operation, argument)!;
             return ComputeAnalysisValueForReferenceOperation(operation, value);
         }
 
         public override TAbstractAnalysisValue VisitFlowCaptureReference(IFlowCaptureReferenceOperation operation, object? argument)
         {
-            var value = base.VisitFlowCaptureReference(operation, argument);
+            var value = base.VisitFlowCaptureReference(operation, argument)!;
             if (!IsLValueFlowCaptureReference(operation))
             {
                 if (_lValueFlowCaptures.Contains(operation.Id))
@@ -3021,19 +3115,16 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             }
 
             // Handle ref/out arguments as escapes.
-            switch (operation.Parameter.RefKind)
+            if (operation.Parameter?.RefKind is RefKind.Ref or RefKind.Out)
             {
-                case RefKind.Ref:
-                case RefKind.Out:
-                    var value = ComputeAnalysisValueForEscapedRefOrOutArgument(operation, defaultValue: ValueDomain.UnknownOrMayBeValue);
-                    if (operation.Parameter.RefKind != RefKind.Out)
-                    {
-                        value = ValueDomain.Merge(value, GetCachedAbstractValue(operation.Value));
-                    }
+                var value = ComputeAnalysisValueForEscapedRefOrOutArgument(operation, defaultValue: ValueDomain.UnknownOrMayBeValue);
+                if (operation.Parameter.RefKind != RefKind.Out)
+                {
+                    value = ValueDomain.Merge(value, GetCachedAbstractValue(operation.Value));
+                }
 
-                    CacheAbstractValue(operation, value);
-                    SetAbstractValueForAssignment(operation.Value, operation, value);
-                    break;
+                CacheAbstractValue(operation, value);
+                SetAbstractValueForAssignment(operation.Value, operation, value);
             }
         }
 
@@ -3064,9 +3155,9 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         {
             Debug.Assert(operation.Initializer == null, "Object or collection initializer must have been lowered in the CFG");
 
-            var defaultValue = base.VisitObjectCreation(operation, argument);
+            var defaultValue = base.VisitObjectCreation(operation, argument)!;
 
-            var method = operation.Constructor;
+            var method = operation.Constructor!;
             ControlFlowGraph? getCfg() => GetInterproceduralControlFlowGraph(method);
 
             return PerformInterproceduralAnalysis(getCfg, method, instanceReceiver: null,
@@ -3096,20 +3187,33 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                 value = VisitInvocation_NonLambdaOrDelegateOrLocalFunction(operation, argument);
                 CacheAbstractValue(operation, value);
 
-                if (operation.Arguments.Length == 1 &&
-                    operation.Instance != null &&
-                    operation.TargetMethod.IsTaskConfigureAwaitMethod(GenericTaskNamedType))
+                switch (operation.Arguments.Length)
                 {
-                    // ConfigureAwait invocation - just return the abstract value of the visited instance on which it is invoked.
-                    value = GetCachedAbstractValue(operation.Instance);
-                }
-                else if (operation.Arguments.Length == 1 &&
-                   operation.TargetMethod.IsTaskFromResultMethod(TaskNamedType))
-                {
-                    // Result wrapped within a task.
-                    var wrappedOperationValue = GetCachedAbstractValue(operation.Arguments[0].Value);
-                    var pointsToValueOfTask = GetPointsToAbstractValue(operation);
-                    SetTaskWrappedValue(pointsToValueOfTask, wrappedOperationValue);
+                    case 1:
+                        if (operation.Instance != null && operation.TargetMethod.IsTaskConfigureAwaitMethod(GenericTaskNamedType))
+                        {
+                            // ConfigureAwait invocation - just return the abstract value of the visited instance on which it is invoked.
+                            value = GetCachedAbstractValue(operation.Instance);
+                        }
+                        else if (operation.TargetMethod.IsTaskFromResultMethod(TaskNamedType))
+                        {
+                            // Result wrapped within a task.
+                            var wrappedOperationValue = GetCachedAbstractValue(operation.Arguments[0].Value);
+                            var pointsToValueOfTask = GetPointsToAbstractValue(operation);
+                            SetTaskWrappedValue(pointsToValueOfTask, wrappedOperationValue);
+                        }
+
+                        break;
+
+                    case 2:
+                        if (operation.Instance == null &&
+                            operation.TargetMethod.IsAsyncDisposableConfigureAwaitMethod(IAsyncDisposableNamedType, TaskAsyncEnumerableExtensions))
+                        {
+                            // ConfigureAwait invocation - just return the abstract value of the visited instance on which it is invoked.
+                            value = GetCachedAbstractValue(operation.Arguments.GetArgumentForParameterAtIndex(0));
+                        }
+
+                        break;
                 }
 
                 PostVisitInvocation(operation.TargetMethod, operation.Arguments);
@@ -3122,7 +3226,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             {
                 // Predicate analysis for different equality compare method invocations.
                 if (PredicateAnalysis &&
-                    operation.Type.SpecialType == SpecialType.System_Boolean &&
+                    operation.Type?.SpecialType == SpecialType.System_Boolean &&
                     (targetMethod.Name.EndsWith("Equals", StringComparison.Ordinal) ||
                      targetMethod.IsArgumentNullCheckMethod()))
                 {
@@ -3137,7 +3241,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     HandleEnterLockOperation(arguments[0].Value);
                 }
                 else if (InterlockedNamedType != null &&
-                    targetMethod.ContainingType.OriginalDefinition.Equals(InterlockedNamedType))
+                    SymbolEqualityComparer.Default.Equals(targetMethod.ContainingType.OriginalDefinition, InterlockedNamedType))
                 {
                     ProcessInterlockedOperation(targetMethod, arguments, InterlockedNamedType);
                 }
@@ -3168,15 +3272,16 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         private TAbstractAnalysisValue VisitInvocation_NonLambdaOrDelegateOrLocalFunction(IInvocationOperation operation, object? argument)
         {
-            var value = base.VisitInvocation(operation, argument);
+            var value = base.VisitInvocation(operation, argument)!;
             return VisitInvocation_NonLambdaOrDelegateOrLocalFunction(operation.TargetMethod, operation.Instance, operation.Arguments,
                 invokedAsDelegate: false, originalOperation: operation, defaultValue: value);
         }
 
-        private protected void MarkEscapedLambdasAndLocalFunctions(PointsToAbstractValue pointsToAbstractValue)
+        private protected bool MarkEscapedLambdasAndLocalFunctions(PointsToAbstractValue pointsToAbstractValue)
         {
             Debug.Assert(IsPointsToAnalysis);
 
+            var hasEscapes = false;
             using var methodTargetsOptBuilder = PooledHashSet<(IMethodSymbol method, IOperation? instance)>.GetInstance();
             using var lambdaTargets = PooledHashSet<IFlowAnonymousFunctionOperation>.GetInstance();
             if (ResolveLambdaOrDelegateOrLocalFunctionTargets(pointsToAbstractValue, methodTargetsOptBuilder, lambdaTargets))
@@ -3186,14 +3291,18 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                     if (targetMethod.MethodKind == MethodKind.LocalFunction)
                     {
                         _escapedLocalFunctions.Add(targetMethod);
+                        hasEscapes = true;
                     }
                 }
 
                 foreach (var flowAnonymousFunctionOperation in lambdaTargets)
                 {
                     _escapedLambdas.Add(flowAnonymousFunctionOperation);
+                    hasEscapes = true;
                 }
             }
+
+            return hasEscapes;
         }
 
         private bool ResolveLambdaOrDelegateOrLocalFunctionTargets(
@@ -3326,7 +3435,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             object? argument,
             out ImmutableHashSet<(IMethodSymbol method, IOperation? instance)>? resolvedMethodTargets)
         {
-            var value = base.VisitInvocation(operation, argument);
+            var value = base.VisitInvocation(operation, argument)!;
 
             using var methodTargetsOptBuilder = PooledHashSet<(IMethodSymbol method, IOperation? instance)>.GetInstance();
             using var lambdaTargets = PooledHashSet<IFlowAnonymousFunctionOperation>.GetInstance();
@@ -3500,7 +3609,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitDelegateCreation(IDelegateCreationOperation operation, object? argument)
         {
-            var value = base.VisitDelegateCreation(operation, argument);
+            var value = base.VisitDelegateCreation(operation, argument)!;
             if (!HasPointsToAnalysisResult)
             {
                 switch (operation.Target)
@@ -3513,7 +3622,9 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                         if (methodReference.Method.MethodKind == MethodKind.LocalFunction)
                         {
                             _escapedLocalFunctions.Add(methodReference.Method);
+                            _escapedLocalFunctions.Add(methodReference.Method);
                         }
+
                         break;
                 }
             }
@@ -3607,12 +3718,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public virtual TAbstractAnalysisValue VisitBinaryOperatorCore(IBinaryOperation operation, object? argument)
         {
-            return base.VisitBinaryOperator(operation, argument);
+            return base.VisitBinaryOperator(operation, argument)!;
         }
 
         public sealed override TAbstractAnalysisValue VisitBinaryOperator(IBinaryOperation operation, object? argument)
         {
-            var value = VisitBinaryOperatorCore(operation, argument);
+            var value = VisitBinaryOperatorCore(operation, argument)!;
             if (PredicateAnalysis && operation.IsComparisonOperator())
             {
                 PerformPredicateAnalysis(operation);
@@ -3623,11 +3734,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitIsNull(IIsNullOperation operation, object? argument)
         {
-            var value = base.VisitIsNull(operation, argument);
+            var value = base.VisitIsNull(operation, argument)!;
             if (PredicateAnalysis)
             {
                 PerformPredicateAnalysis(operation);
             }
+
             return value;
         }
 
@@ -3639,7 +3751,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
                 MergeAnalysisDataFromUnhandledThrowOperations(operation.Type);
             }
 
-            return base.VisitCaughtException(operation, argument);
+            return base.VisitCaughtException(operation, argument)!;
         }
 
         private void MergeAnalysisDataFromUnhandledThrowOperations(ITypeSymbol? caughtExceptionType)
@@ -3689,7 +3801,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitFlowAnonymousFunction(IFlowAnonymousFunctionOperation operation, object? argument)
         {
-            var value = base.VisitFlowAnonymousFunction(operation, argument);
+            var value = base.VisitFlowAnonymousFunction(operation, argument)!;
             _visitedLambdas.Add(operation);
             return value;
         }
@@ -3697,14 +3809,14 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         public override TAbstractAnalysisValue VisitStaticLocalInitializationSemaphore(IStaticLocalInitializationSemaphoreOperation operation, object? argument)
         {
             // https://github.com/dotnet/roslyn-analyzers/issues/1571 tracks adding support.
-            return base.VisitStaticLocalInitializationSemaphore(operation, argument);
+            return base.VisitStaticLocalInitializationSemaphore(operation, argument)!;
         }
 
         public override TAbstractAnalysisValue VisitAnonymousObjectCreation(IAnonymousObjectCreationOperation operation, object? argument)
         {
             var savedIsInsideAnonymousObjectInitializer = IsInsideAnonymousObjectInitializer;
             IsInsideAnonymousObjectInitializer = true;
-            var value = base.VisitAnonymousObjectCreation(operation, argument);
+            var value = base.VisitAnonymousObjectCreation(operation, argument)!;
             IsInsideAnonymousObjectInitializer = savedIsInsideAnonymousObjectInitializer;
             return value;
         }
@@ -3749,7 +3861,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitAwait(IAwaitOperation operation, object? argument)
         {
-            var value = base.VisitAwait(operation, argument);
+            var value = base.VisitAwait(operation, argument)!;
 
             var pointsToValue = GetPointsToAbstractValue(operation.Operation);
             return TryGetTaskWrappedValue(pointsToValue, out var awaitedValue) ?
@@ -4005,9 +4117,31 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         private INamedTypeSymbol? IAsyncDisposableNamedType { get; }
 
         /// <summary>
+        /// <see cref="INamedTypeSymbol"/> for "System.Runtime.CompilerServices.ConfiguredAsyncDisposable"
+        /// </summary>
+        private INamedTypeSymbol? ConfiguredAsyncDisposable { get; }
+
+        /// <summary>
+        /// <see cref="INamedTypeSymbol"/> for "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable"
+        /// </summary>
+        private INamedTypeSymbol? ConfiguredValueTaskAwaitable { get; }
+
+        /// <summary>
         /// <see cref="INamedTypeSymbol"/> for <see cref="System.Threading.Tasks.Task"/>
         /// </summary>
         protected INamedTypeSymbol? TaskNamedType { get; }
+
+#pragma warning disable CA1200 // Avoid using cref tags with a prefix - cref prefix required for one of the project contexts
+        /// <summary>
+        /// <see cref="INamedTypeSymbol"/> for <see cref="T:System.Threading.Tasks.TaskAsyncEnumerableExtensions"/>
+        /// </summary>
+        private INamedTypeSymbol? TaskAsyncEnumerableExtensions { get; }
+#pragma warning restore CA1200 // Avoid using cref tags with a prefix
+
+        /// <summary>
+        /// <see cref="INamedTypeSymbol"/> for <see cref="System.IO.MemoryStream"/>
+        /// </summary>
+        protected INamedTypeSymbol? MemoryStreamNamedType { get; }
 
         /// <summary>
         /// <see cref="INamedTypeSymbol"/> for System.Threading.Tasks.ValueTask/>
@@ -4084,9 +4218,9 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         }
 
         private protected bool IsDisposable([NotNullWhen(returnValue: true)] ITypeSymbol? type)
-            => type != null && type.IsDisposable(IDisposableNamedType, IAsyncDisposableNamedType);
+            => type != null && type.IsDisposable(IDisposableNamedType, IAsyncDisposableNamedType, ConfiguredAsyncDisposable);
 
         private protected DisposeMethodKind GetDisposeMethodKind(IMethodSymbol method)
-            => method.GetDisposeMethodKind(IDisposableNamedType, IAsyncDisposableNamedType, TaskNamedType, ValueTaskNamedType);
+            => method.GetDisposeMethodKind(IDisposableNamedType, IAsyncDisposableNamedType, ConfiguredAsyncDisposable, TaskNamedType, ValueTaskNamedType, ConfiguredValueTaskAwaitable);
     }
 }

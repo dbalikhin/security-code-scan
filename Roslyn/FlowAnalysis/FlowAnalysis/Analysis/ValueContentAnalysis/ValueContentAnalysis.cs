@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -18,6 +18,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
     /// </summary>
     public partial class ValueContentAnalysis : ForwardDataFlowAnalysis<ValueContentAnalysisData, ValueContentAnalysisContext, ValueContentAnalysisResult, ValueContentBlockAnalysisResult, ValueContentAbstractValue>
     {
+        internal static readonly AbstractValueDomain<ValueContentAbstractValue> ValueDomainInstance = ValueContentAbstractValueDomain.Default;
+
         private ValueContentAnalysis(ValueContentAnalysisDomain analysisDomain, ValueContentDataFlowOperationVisitor operationVisitor)
             : base(analysisDomain, operationVisitor)
         {
@@ -30,13 +32,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
             AnalyzerOptions analyzerOptions,
             DiagnosticDescriptor rule,
             PointsToAnalysisKind defaultPointsToAnalysisKind,
-            CancellationToken cancellationToken,
+            CancellationToken cancellationToken = default,
             InterproceduralAnalysisKind interproceduralAnalysisKind = InterproceduralAnalysisKind.None,
-            bool pessimisticAnalysis = true)
+            bool pessimisticAnalysis = true            )
         {
             return TryGetOrComputeResult(cfg, owningSymbol, wellKnownTypeProvider, analyzerOptions, rule,
-                defaultPointsToAnalysisKind, cancellationToken, out var _, out var _, interproceduralAnalysisKind,
-                pessimisticAnalysis);
+                defaultPointsToAnalysisKind, cancellationToken, out var _, out var _, interproceduralAnalysisKind, pessimisticAnalysis);
         }
 
         public static ValueContentAnalysisResult? TryGetOrComputeResult(
@@ -102,7 +103,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
                 null;
 
             var analysisContext = ValueContentAnalysisContext.Create(
-                ValueContentAbstractValueDomain.Default, wellKnownTypeProvider, cfg, owningSymbol, analyzerOptions,
+                ValueDomainInstance, wellKnownTypeProvider, cfg, owningSymbol, analyzerOptions,
                 interproceduralAnalysisConfig, pessimisticAnalysis, copyAnalysisResult,
                 pointsToAnalysisResult, TryGetOrComputeResultForAnalysisContext,
                 additionalSupportedValueTypes, getValueContentValueForAdditionalSupportedValueTypeOperation,

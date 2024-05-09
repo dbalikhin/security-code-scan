@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -13,9 +13,9 @@ namespace Analyzer.Utilities
 {
     /// <summary>
     /// Provider that allows analyzers to easily find and use
-    /// <see href="https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Using%20Additional%20Files.md">additional files</see>.
+    /// <see href="https://github.com/dotnet/roslyn/blob/main/docs/analyzers/Using%20Additional%20Files.md">additional files</see>.
     /// </summary>
-    internal class AdditionalFileProvider
+    internal sealed class AdditionalFileProvider
     {
         private readonly ImmutableArray<AdditionalText> _additionalFiles;
 
@@ -30,14 +30,14 @@ namespace Analyzer.Utilities
         /// <param name="options">Options passed to a <see cref="DiagnosticAnalyzer"/>.</param>
         /// <returns>An instance of <see cref="AdditionalFileProvider"/>.</returns>
         public static AdditionalFileProvider FromOptions(AnalyzerOptions options)
-            => new AdditionalFileProvider(options.AdditionalFiles);
+            => new(options.AdditionalFiles);
 
         /// <summary>
         /// Returns the first additional file whose name is the specified <paramref name="fileName"/>.
         /// </summary>
         /// <param name="fileName">Name of the file, including extension, to return.</param>
         /// <returns>An additional file or <c>null</c> if no file can be found.</returns>
-        public AdditionalText GetFile(string fileName)
+        public AdditionalText? GetFile(string fileName)
             => _additionalFiles.FirstOrDefault(x => Path.GetFileName(x.Path).Equals(fileName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
@@ -47,10 +47,14 @@ namespace Analyzer.Utilities
         bool IsEmpty { get; }
 
         T GetOptionValue<T>(string optionName, SyntaxTree? tree, DiagnosticDescriptor? rule, TryParseValue<T> tryParseValue, T defaultValue, OptionKind kind = OptionKind.DotnetCodeQuality);
+
+        T GetOptionValue<T, TArg>(string optionName, SyntaxTree? tree, DiagnosticDescriptor? rule, TryParseValue<T, TArg> tryParseValue, TArg arg, T defaultValue, OptionKind kind = OptionKind.DotnetCodeQuality);
     }
 
     internal static class CategorizedAnalyzerConfigOptionsExtensions
     {
         public delegate bool TryParseValue<T>(string value, [MaybeNullWhen(returnValue: false)] out T parsedValue);
+
+        public delegate bool TryParseValue<T, TArg>(string value, TArg arg, [MaybeNullWhen(returnValue: false)] out T parsedValue);
     }
 }

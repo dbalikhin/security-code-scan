@@ -1,10 +1,12 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using Analyzer.Utilities.PooledObjects;
 
 namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 {
@@ -37,7 +39,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             : base(data1, data2, data1.CoreAnalysisData,
                   data2.CoreAnalysisData, data1.IsReachableBlockData, coreDataAnalysisDomain)
         {
-            Debug.Assert(data1.IsReachableBlockData == data1.IsReachableBlockData);
+            Debug.Assert(data1.IsReachableBlockData == data2.IsReachableBlockData);
 
             CoreAnalysisData = coreDataAnalysisDomain.Merge(data1.CoreAnalysisData, data2.CoreAnalysisData);
         }
@@ -58,6 +60,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public virtual bool HasAnyAbstractValue => CoreAnalysisData.Count > 0 || HasPredicatedData;
 
+        protected abstract AbstractValueDomain<TValue> ValueDomain { get; }
         public abstract AnalysisEntityBasedPredicateAnalysisData<TValue> Clone();
         public abstract AnalysisEntityBasedPredicateAnalysisData<TValue> WithMergedData(AnalysisEntityBasedPredicateAnalysisData<TValue> data, MapAbstractDomain<AnalysisEntity, TValue> coreDataAnalysisDomain);
         public abstract int Compare(AnalysisEntityBasedPredicateAnalysisData<TValue> other, MapAbstractDomain<AnalysisEntity, TValue> coreDataAnalysisDomain);
@@ -100,6 +103,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             }
 
             CoreAnalysisData[key] = value;
+
+            ClearOverlappingAnalysisDataForIndexedEntity(key, value);
         }
 
         public void RemoveEntries(AnalysisEntity key)
@@ -158,6 +163,56 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
         }
 
         public void AddTrackedEntities(HashSet<AnalysisEntity> builder) => builder.UnionWith(CoreAnalysisData.Keys);
+
+        private void ClearOverlappingAnalysisDataForIndexedEntity(AnalysisEntity analysisEntity, TValue value)
+        {
+            if (!analysisEntity.Indices.Any(index => !index.IsConstant()))
+            {
+                return;
+            }
+
+            // Collect all the overlapping indexed entities whose value needs to be updated into a builder.
+            // Ensure that we perform these state updates after the foreach loop to avoid modifying the
+            // underlying CoreAnalysisData within the loop.
+            // See https://github.com/dotnet/roslyn-analyzers/issues/6929 for more details.
+            using var builder = ArrayBuilder<(AnalysisEntity, TValue)>.GetInstance(CoreAnalysisData.Count);
+            foreach (var entity in CoreAnalysisData.Keys)
+            {
+                if (entity.Indices.Length != analysisEntity.Indices.Length ||
+                    entity == analysisEntity)
+                {
+                    continue;
+                }
+
+                var canOverlap = true;
+                for (var i = 0; i < entity.Indices.Length; i++)
+                {
+                    if (entity.Indices[i].IsConstant() &&
+                        analysisEntity.Indices[i].IsConstant() &&
+                        !entity.Indices[i].Equals(analysisEntity.Indices[i]))
+                    {
+                        canOverlap = false;
+                        break;
+                    }
+                }
+
+                if (canOverlap &&
+                    entity.WithIndices(analysisEntity.Indices).Equals(analysisEntity) &&
+                    CoreAnalysisData.TryGetValue(entity, out var existingValue))
+                {
+                    var mergedValue = ValueDomain.Merge(value, existingValue);
+                    if (!existingValue!.Equals(mergedValue))
+                    {
+                        builder.Add((entity, mergedValue));
+                    }
+                }
+            }
+
+            foreach (var (entity, newValue) in builder.AsEnumerable())
+            {
+                SetAbstractValue(entity, newValue);
+            }
+        }
 
         protected override void Dispose(bool disposing)
         {

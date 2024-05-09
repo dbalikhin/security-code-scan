@@ -1,9 +1,8 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using System.Collections.Immutable;
 
 namespace Analyzer.Utilities.Extensions
 {
@@ -24,7 +23,7 @@ namespace Analyzer.Utilities.Extensions
                 return methods;
             }
 
-            return methods.Where(m => !m.HasAttribute(attributeType));
+            return methods.Where(m => !m.HasAnyAttribute(attributeType));
         }
 
         /// <summary>
@@ -44,7 +43,7 @@ namespace Analyzer.Utilities.Extensions
         {
             return methods.Where(candidateMethod =>
             {
-                if (!candidateMethod.Parameters.HasExactly(selectedOverload.Parameters.Count() + 1))
+                if (!System.Collections.Immutable.ImmutableArrayExtensions.HasExactly(candidateMethod.Parameters, selectedOverload.Parameters.Length + 1))
                 {
                     return false;
                 }
@@ -70,7 +69,7 @@ namespace Analyzer.Utilities.Extensions
                     }
                 }
 
-                for (int i = 0; i < selectedOverload.Parameters.Count(); i++, j++)
+                for (int i = 0; i < selectedOverload.Parameters.Length; i++, j++)
                 {
                     if (!selectedOverload.Parameters[i].Type.Equals(candidateMethod.Parameters[j].Type) ||
                         selectedOverload.Parameters[i].IsParams != candidateMethod.Parameters[j].IsParams ||
@@ -101,6 +100,34 @@ namespace Analyzer.Utilities.Extensions
         }
 
         /// <summary>
+        /// Gets the <see cref="IMethodSymbol"/> in the sequence who's parameters match <paramref name="expectedParameterTypesInOrder"/>.
+        /// </summary>
+        /// <param name="members">The sequence of <see cref="IMethodSymbol"/>s to search.</param>
+        /// <param name="expectedParameterTypesInOrder">The types of the parameters, in order.</param>
+        /// <returns>
+        /// The first <see cref="IMethodSymbol"/> in the sequence who's parameters match <paramref name="expectedParameterTypesInOrder"/>, or <langword>null</langword> if
+        /// no method was found.
+        /// </returns>
+        public static IMethodSymbol? GetFirstOrDefaultMemberWithParameterTypes(this IEnumerable<IMethodSymbol>? members, params ITypeSymbol[] expectedParameterTypesInOrder)
+        {
+            return members?.FirstOrDefault(member =>
+            {
+                if (member.Parameters.Length != expectedParameterTypesInOrder.Length)
+                    return false;
+
+                for (int i = 0; i < expectedParameterTypesInOrder.Length; ++i)
+                {
+                    var parameterType = member.Parameters[i].Type;
+
+                    if (!expectedParameterTypesInOrder[i].Equals(parameterType))
+                        return false;
+                }
+
+                return true;
+            });
+        }
+
+        /// <summary>
         /// Given a <see cref="IEnumerable{IMethodSymbol}"/>, this method returns the method symbol which 
         /// matches the expectedParameterTypesInOrder parameter requirement
         /// </summary>
@@ -112,7 +139,7 @@ namespace Analyzer.Utilities.Extensions
             var expectedParameterCount = expectedParameterTypesInOrder.Length;
             return members?.FirstOrDefault(member =>
             {
-                if (member.Parameters.Count() != expectedParameterCount)
+                if (member.Parameters.Length != expectedParameterCount)
                 {
                     return false;
                 }
@@ -147,10 +174,48 @@ namespace Analyzer.Utilities.Extensions
                 return true;
             });
         }
+
+        /// <summary>
+        /// Given an <see cref="IEnumerable{IMethodSymbol}"/>, returns the <see cref="IMethodSymbol"/> whose parameter list
+        /// matches <paramref name="expectedParameterTypesInOrder"/>.
+        /// </summary>
+        /// <param name="members"></param>
+        /// <param name="expectedParameterTypesInOrder">Expected types of the member's parameters.</param>
+        /// <returns>
+        /// The first member in the sequence whose parameters match <paramref name="expectedParameterTypesInOrder"/>, 
+        /// or null if no matches are found.
+        /// </returns>
+        public static IMethodSymbol? GetFirstOrDefaultMemberWithParameterTypes(this IEnumerable<IMethodSymbol>? members, IReadOnlyList<ITypeSymbol> expectedParameterTypesInOrder)
+        {
+            if (members is null)
+                return null;
+
+            foreach (var member in members)
+            {
+                if (Predicate(member))
+                    return member;
+            }
+
+            return null;
+
+            bool Predicate(IMethodSymbol member)
+            {
+                if (member.Parameters.Length != expectedParameterTypesInOrder.Count)
+                    return false;
+
+                for (int index = 0; index < expectedParameterTypesInOrder.Count; index++)
+                {
+                    if (!member.Parameters[index].Type.Equals(expectedParameterTypesInOrder[index]))
+                        return false;
+                }
+
+                return true;
+            }
+        }
     }
 
     // Contains the expected properties of a parameter
-    internal class ParameterInfo
+    internal sealed class ParameterInfo
     {
         public int ArrayRank { get; private set; }
         public bool IsArray { get; private set; }

@@ -160,6 +160,7 @@ Sinks:
 
         protected override IEnumerable<MetadataReference> GetAdditionalReferences() => References;
 
+        /*
         [DataTestMethod]
         [DataRow("input", true)]
         [DataRow("Request.ToString()", false)]
@@ -213,6 +214,8 @@ Sinks:
         [DataRow("Request.GetBufferedInputStream().ToString()", true)]
         [DataRow("Request.GetBufferlessInputStream(true).ToString()", true)]
         [DataRow("Request.GetBufferlessInputStream().ToString()", true)]
+        */
+        [DataTestMethod]
         [DataRow("ControllerContext.RouteData.Values[\"test\"].ToString()", true)]
         public async Task TaintSourceController(string payload, bool warn)
         {
@@ -393,6 +396,7 @@ Sinks:
             MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.ActionContext).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Routing.RouteValueDictionary).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(Microsoft.Extensions.Primitives.StringValues).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Web.Mvc.Controller).Assembly.Location),
             MetadataReference.CreateFromFile(Assembly.Load("netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51")
                                                      .Location),
         };

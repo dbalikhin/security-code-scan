@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -165,6 +165,12 @@ namespace Analyzer.Utilities.Extensions
 
         public static void ReportNoLocationDiagnostic(
             this CompilationAnalysisContext context,
+            DiagnosticDescriptor rule,
+            params object[] args)
+            => context.Compilation.ReportNoLocationDiagnostic(rule, context.ReportDiagnostic, properties: null, args);
+
+        public static void ReportNoLocationDiagnostic(
+            this SyntaxNodeAnalysisContext context,
             DiagnosticDescriptor rule,
             params object[] args)
             => context.Compilation.ReportNoLocationDiagnostic(rule, context.ReportDiagnostic, properties: null, args);
