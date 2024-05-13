@@ -1,9 +1,10 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
+
+#if CODEANALYSIS_V3_OR_BETTER
 
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -12,10 +13,9 @@ using Analyzer.Utilities.Options;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-#pragma warning disable RS1012 // Start action has no registered actions.
-
 namespace Analyzer.Utilities
 {
+
     public static partial class AnalyzerOptionsExtensions
     {
         private static readonly ConditionalWeakTable<AnalyzerOptions, ICategorizedAnalyzerConfigOptions> s_cachedOptions = new();
@@ -104,7 +104,16 @@ namespace Analyzer.Utilities
             SyntaxTree tree,
             Compilation compilation,
             CancellationToken cancellationToken)
-            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.OutputKind, rule, tree, compilation, s_defaultOutputKinds, cancellationToken);
+            => options.GetOutputKindsOption(rule, tree, compilation, s_defaultOutputKinds, cancellationToken);
+
+        public static ImmutableHashSet<OutputKind> GetOutputKindsOption(
+            this AnalyzerOptions options,
+            DiagnosticDescriptor rule,
+            SyntaxTree tree,
+            Compilation compilation,
+            ImmutableHashSet<OutputKind> defaultValue,
+            CancellationToken cancellationToken)
+            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.OutputKind, rule, tree, compilation, defaultValue, cancellationToken);
 
         public static ImmutableHashSet<SymbolKind> GetAnalyzedSymbolKindsOption(
             this AnalyzerOptions options,
@@ -126,7 +135,7 @@ namespace Analyzer.Utilities
             CancellationToken cancellationToken)
             => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.AnalyzedSymbolKinds, rule, tree, compilation, defaultSymbolKinds, cancellationToken);
 
-        private static TEnum GetFlagsEnumOptionValue<TEnum>(
+        public static TEnum GetFlagsEnumOptionValue<TEnum>(
             this AnalyzerOptions options,
             string optionName,
             DiagnosticDescriptor rule,
@@ -139,11 +148,11 @@ namespace Analyzer.Utilities
             var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
             return analyzerConfigOptions.GetOptionValue(
                 optionName, tree, rule,
-                tryParseValue: (string value, out TEnum result) => Enum.TryParse(value, ignoreCase: true, result: out result),
+                tryParseValue: static (string value, out TEnum result) => Enum.TryParse(value, ignoreCase: true, result: out result),
                 defaultValue: defaultValue);
         }
 
-        private static ImmutableHashSet<TEnum> GetNonFlagsEnumOptionValue<TEnum>(
+        public static ImmutableHashSet<TEnum> GetNonFlagsEnumOptionValue<TEnum>(
             this AnalyzerOptions options,
             string optionName,
             DiagnosticDescriptor rule,
@@ -171,9 +180,7 @@ namespace Analyzer.Utilities
             }
         }
 
-#pragma warning disable IDE0051 // Remove unused private members - Used in some projects that include this shared project.
-        private static TEnum GetNonFlagsEnumOptionValue<TEnum>(
-#pragma warning restore IDE0051 // Remove unused private members
+        public static TEnum GetNonFlagsEnumOptionValue<TEnum>(
             this AnalyzerOptions options,
             string optionName,
             DiagnosticDescriptor rule,
@@ -182,13 +189,7 @@ namespace Analyzer.Utilities
             TEnum defaultValue,
             CancellationToken cancellationToken)
             where TEnum : struct
-        {
-            var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
-            return analyzerConfigOptions.GetOptionValue(
-                optionName, tree, rule,
-                tryParseValue: (string value, out TEnum result) => Enum.TryParse(value, ignoreCase: true, result: out result),
-                defaultValue: defaultValue);
-        }
+            => GetFlagsEnumOptionValue(options, optionName, rule, tree, compilation, defaultValue, cancellationToken);
 
         public static bool GetBoolOptionValue(
             this AnalyzerOptions options,
@@ -205,7 +206,7 @@ namespace Analyzer.Utilities
         public static bool GetBoolOptionValue(
             this AnalyzerOptions options,
             string optionName,
-            DiagnosticDescriptor rule,
+            DiagnosticDescriptor? rule,
             SyntaxTree tree,
             Compilation compilation,
             bool defaultValue,
@@ -214,18 +215,6 @@ namespace Analyzer.Utilities
             var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
             return analyzerConfigOptions.GetOptionValue(optionName, tree, rule, bool.TryParse, defaultValue);
         }
-
-        public static uint GetUnsignedIntegralOptionValue(
-            this AnalyzerOptions options,
-            string optionName,
-            DiagnosticDescriptor rule,
-            ISymbol symbol,
-            Compilation compilation,
-            uint defaultValue,
-            CancellationToken cancellationToken)
-        => TryGetSyntaxTreeForOption(symbol, out var tree)
-            ? options.GetUnsignedIntegralOptionValue(optionName, rule, tree, compilation, defaultValue, cancellationToken)
-            : defaultValue;
 
         public static uint GetUnsignedIntegralOptionValue(
             this AnalyzerOptions options,
@@ -473,6 +462,22 @@ namespace Analyzer.Utilities
             CancellationToken cancellationToken)
             => options.GetSymbolNamesWithValueOption<Unit>(EditorConfigOptionNames.AdditionalUseResultsMethods, rule, tree, compilation, static name => new SymbolNamesWithValueOption<Unit>.NameParts(name, Unit.Default), cancellationToken, namePrefix: "M:");
 
+        public static SymbolNamesWithValueOption<Unit> GetEnumerationMethodsOption(
+            this AnalyzerOptions options,
+            DiagnosticDescriptor rule,
+            SyntaxTree tree,
+            Compilation compilation,
+            CancellationToken cancellationToken)
+            => options.GetSymbolNamesWithValueOption<Unit>(EditorConfigOptionNames.EnumerationMethods, rule, tree, compilation, static name => new SymbolNamesWithValueOption<Unit>.NameParts(name, Unit.Default), cancellationToken, namePrefix: "M:");
+
+        public static SymbolNamesWithValueOption<Unit> GetLinqChainMethodsOption(
+            this AnalyzerOptions options,
+            DiagnosticDescriptor rule,
+            SyntaxTree tree,
+            Compilation compilation,
+            CancellationToken cancellationToken)
+            => options.GetSymbolNamesWithValueOption<Unit>(EditorConfigOptionNames.LinqChainMethods, rule, tree, compilation, static name => new SymbolNamesWithValueOption<Unit>.NameParts(name, Unit.Default), cancellationToken, namePrefix: "M:");
+
         private static SymbolNamesWithValueOption<TValue> GetSymbolNamesWithValueOption<TValue>(
             this AnalyzerOptions options,
             string optionName,
@@ -486,17 +491,23 @@ namespace Analyzer.Utilities
             string? optionForcedValue = null)
         {
             var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
-            return analyzerConfigOptions.GetOptionValue(optionName, tree, rule, TryParse, defaultValue: GetDefaultValue());
+            return analyzerConfigOptions.GetOptionValue(
+                optionName,
+                tree,
+                rule,
+                TryParse,
+                (compilation, getTypeAndSuffixFunc, namePrefix, optionForcedValue),
+                defaultValue: GetDefaultValue());
 
             // Local functions.
-            bool TryParse(string s, out SymbolNamesWithValueOption<TValue> option)
+            static bool TryParse(string s, (Compilation compilation, Func<string, SymbolNamesWithValueOption<TValue>.NameParts> getTypeAndSuffixFunc, string? namePrefix, string? optionForcedValue) arg, out SymbolNamesWithValueOption<TValue> option)
             {
                 var optionValue = s;
 
-                if (!RoslynString.IsNullOrEmpty(optionForcedValue) &&
-                    (optionValue == null || !optionValue.Contains(optionForcedValue, StringComparison.Ordinal)))
+                if (!RoslynString.IsNullOrEmpty(arg.optionForcedValue) &&
+                    (optionValue == null || !optionValue.Contains(arg.optionForcedValue, StringComparison.Ordinal)))
                 {
-                    optionValue = $"{optionForcedValue}|{optionValue}";
+                    optionValue = $"{arg.optionForcedValue}|{optionValue}";
                 }
 
                 if (string.IsNullOrEmpty(optionValue))
@@ -506,7 +517,7 @@ namespace Analyzer.Utilities
                 }
 
                 var names = optionValue.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).ToImmutableArray();
-                option = SymbolNamesWithValueOption<TValue>.Create(names, compilation, namePrefix, getTypeAndSuffixFunc);
+                option = SymbolNamesWithValueOption<TValue>.Create(names, arg.compilation, arg.namePrefix, arg.getTypeAndSuffixFunc);
                 return true;
             }
 
@@ -528,7 +539,7 @@ namespace Analyzer.Utilities
 
                 RoslynDebug.Assert(optionValue != null);
 
-                return TryParse(optionValue, out var option)
+                return TryParse(optionValue, (compilation, getTypeAndSuffixFunc, namePrefix, optionForcedValue), out var option)
                     ? option
                     : SymbolNamesWithValueOption<TValue>.Empty;
             }
@@ -551,7 +562,11 @@ namespace Analyzer.Utilities
 
             var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
             return analyzerConfigOptions.GetOptionValue(optionName, tree, rule: null,
-                tryParseValue: (string value, out string? result) => { result = value; return true; },
+                tryParseValue: static (string value, out string? result) =>
+                {
+                    result = value;
+                    return true;
+                },
                 defaultValue: null, OptionKind.BuildProperty);
         }
 
@@ -573,7 +588,11 @@ namespace Analyzer.Utilities
             var propertyOptionName = MSBuildItemOptionNamesHelpers.GetPropertyNameForItemOptionName(itemOptionName);
             var analyzerConfigOptions = options.GetOrComputeCategorizedAnalyzerConfigOptions(compilation, cancellationToken);
             var propertyValue = analyzerConfigOptions.GetOptionValue(propertyOptionName, tree, rule: null,
-                tryParseValue: (string value, out string? result) => { result = value; return true; },
+                tryParseValue: static (string value, out string? result) =>
+                {
+                    result = value;
+                    return true;
+                },
                 defaultValue: null, OptionKind.BuildProperty);
             return MSBuildItemOptionNamesHelpers.ParseItemOptionValue(propertyValue);
         }
@@ -633,10 +652,8 @@ namespace Analyzer.Utilities
             return symbol.GetSymbolModifiers().Contains(requiredModifiers);
         }
 
-#pragma warning disable CA1801 // Review unused parameters - 'compilation' is used conditionally.
         private static ICategorizedAnalyzerConfigOptions GetOrComputeCategorizedAnalyzerConfigOptions(
             this AnalyzerOptions options, Compilation compilation, CancellationToken cancellationToken)
-#pragma warning restore CA1801 // Review unused parameters
         {
             // TryGetValue upfront to avoid allocating createValueCallback if the entry already exists.
             if (s_cachedOptions.TryGetValue(options, out var categorizedAnalyzerConfigOptions))
@@ -644,38 +661,19 @@ namespace Analyzer.Utilities
                 return categorizedAnalyzerConfigOptions;
             }
 
-            var createValueCallback = new ConditionalWeakTable<AnalyzerOptions, ICategorizedAnalyzerConfigOptions>.CreateValueCallback(_ => ComputeCategorizedAnalyzerConfigOptions());
-            return s_cachedOptions.GetValue(options, createValueCallback);
+            // Fall back to a slow version of the method, which allocates both for the CreateValueCallback and for
+            // capturing the Compilation argument.
+            return GetOrComputeCategorizedAnalyzerConfigOptions_Slow(options, compilation);
 
-            // Local functions.
-            ICategorizedAnalyzerConfigOptions ComputeCategorizedAnalyzerConfigOptions()
+            static ICategorizedAnalyzerConfigOptions GetOrComputeCategorizedAnalyzerConfigOptions_Slow(
+                AnalyzerOptions options,
+                Compilation compilation)
             {
-                var categorizedOptionsFromAdditionalFiles = ComputeCategorizedAnalyzerConfigOptionsFromAdditionalFiles();
-
-#if CODEANALYSIS_V3_OR_BETTER
-                return AggregateCategorizedAnalyzerConfigOptions.Create(options.AnalyzerConfigOptionsProvider, compilation, categorizedOptionsFromAdditionalFiles, cancellationToken);
-#else
-                return categorizedOptionsFromAdditionalFiles;
-#endif
-            }
-
-            CompilationCategorizedAnalyzerConfigOptions ComputeCategorizedAnalyzerConfigOptionsFromAdditionalFiles()
-            {
-                foreach (var additionalFile in options.AdditionalFiles)
-                {
-                    var fileName = Path.GetFileName(additionalFile.Path);
-                    if (fileName.Equals(".editorconfig", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var text = additionalFile.GetText(cancellationToken);
-                        if (text is null)
-                            return CompilationCategorizedAnalyzerConfigOptions.Empty;
-
-                        return EditorConfigParser.Parse(text);
-                    }
-                }
-
-                return CompilationCategorizedAnalyzerConfigOptions.Empty;
+                return s_cachedOptions.GetValue(
+                    options,
+                    options => AggregateCategorizedAnalyzerConfigOptions.Create(options.AnalyzerConfigOptionsProvider, compilation));
             }
         }
     }
 }
+#endif

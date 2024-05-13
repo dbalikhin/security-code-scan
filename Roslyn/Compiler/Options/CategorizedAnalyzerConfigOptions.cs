@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -9,17 +9,35 @@ using System.Linq;
 
 namespace Analyzer.Utilities
 {
-    /// <inheritdoc cref="ICategorizedAnalyzerConfigOptions"/>
-    internal sealed class CompilationCategorizedAnalyzerConfigOptions : AbstractCategorizedAnalyzerConfigOptions
+    /// <summary>
+    /// Analyzer configuration options from an .editorconfig file that are parsed into general
+    /// and specific configuration options.
+    ///
+    /// .editorconfig format:
+    ///  1) General configuration option:
+    ///     (a) "dotnet_code_quality.OptionName = OptionValue"
+    ///  2) Specific configuration option:
+    ///     (a) "dotnet_code_quality.RuleId.OptionName = OptionValue"
+    ///     (b) "dotnet_code_quality.RuleCategory.OptionName = OptionValue"
+    ///
+    /// .editorconfig examples to configure API surface analyzed by analyzers:
+    ///  1) General configuration option:
+    ///     (a) "dotnet_code_quality.api_surface = all"
+    ///  2) Specific configuration option:
+    ///     (a) "dotnet_code_quality.CA1040.api_surface = public, internal"
+    ///     (b) "dotnet_code_quality.Naming.api_surface = public"
+    ///  See <see cref="SymbolVisibilityGroup"/> for allowed symbol visibility value combinations.
+    /// </summary>
+    internal sealed class CategorizedAnalyzerConfigOptions : AbstractCategorizedAnalyzerConfigOptions
     {
-        public static readonly CompilationCategorizedAnalyzerConfigOptions Empty = new(
+        public static readonly CategorizedAnalyzerConfigOptions Empty = new(
             ImmutableDictionary<string, string>.Empty,
             ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty);
 
         private readonly ImmutableDictionary<string, string> _generalOptions;
         private readonly ImmutableDictionary<string, ImmutableDictionary<string, string>> _specificOptions;
 
-        private CompilationCategorizedAnalyzerConfigOptions(
+        private CategorizedAnalyzerConfigOptions(
             ImmutableDictionary<string, string> generalOptions,
             ImmutableDictionary<string, ImmutableDictionary<string, string>> specificOptions)
         {
@@ -31,12 +49,12 @@ namespace Analyzer.Utilities
         {
             get
             {
-                Debug.Assert(ReferenceEquals(this, Empty) || !_generalOptions.IsEmpty || !_specificOptions.IsEmpty);
+                Debug.Assert(ReferenceEquals(this, Empty) || _generalOptions.Count > 0 || _specificOptions.Count > 0);
                 return ReferenceEquals(this, Empty);
             }
         }
 
-        public static CompilationCategorizedAnalyzerConfigOptions Create(IDictionary<string, string> options)
+        public static CategorizedAnalyzerConfigOptions Create(IDictionary<string, string> options)
         {
             options = options ?? throw new ArgumentNullException(nameof(options));
 
@@ -52,12 +70,12 @@ namespace Analyzer.Utilities
                 var key = kvp.Key;
                 var value = kvp.Value;
 
-                if (!HasSupportedKeyPrefix(key, out var keyPrefix))
+                if (!key.StartsWith(KeyPrefix, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                key = key[keyPrefix.Length..];
+                key = key.Substring(KeyPrefix.Length);
                 var keyParts = key.Split('.').Select(s => s.Trim()).ToImmutableArray();
                 switch (keyParts.Length)
                 {
@@ -92,7 +110,7 @@ namespace Analyzer.Utilities
                     .ToImmutableDictionary(StringComparer.OrdinalIgnoreCase) :
                 ImmutableDictionary<string, ImmutableDictionary<string, string>>.Empty;
 
-            return new CompilationCategorizedAnalyzerConfigOptions(generalOptions, specificOptions);
+            return new CategorizedAnalyzerConfigOptions(generalOptions, specificOptions);
         }
 
         protected override bool TryGetOptionValue(string optionKeyPrefix, string? optionKeySuffix, string optionName, [NotNullWhen(returnValue: true)] out string? valueString)
