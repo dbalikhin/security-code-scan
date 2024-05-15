@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -89,11 +89,12 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public override int GetHashCode()
         {
             var hashCode = new RoslynHashCode();
-            HashUtilities.Combine(this.SanitizingMethods, ref hashCode);
-            HashUtilities.Combine(this.SanitizingInstanceMethods, ref hashCode);
             hashCode.Add(StringComparer.Ordinal.GetHashCode(this.FullTypeName));
-            HashUtilities.Combine(this.SanitizingMethodsNeedsValueContentAnalysis, ref hashCode);
+            hashCode.Add(this.IsInterface.GetHashCode());
             hashCode.Add(this.IsConstructorSanitizing.GetHashCode());
+            HashUtilities.Combine(this.SanitizingMethods, ref hashCode);
+            HashUtilities.Combine(this.SanitizingMethodsNeedsValueContentAnalysis, ref hashCode);
+            HashUtilities.Combine(this.SanitizingInstanceMethods, ref hashCode);
             return hashCode.ToHashCode();
         }
 
@@ -106,6 +107,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         {
             return other != null
                 && this.FullTypeName == other.FullTypeName
+                && this.IsInterface == other.IsInterface
                 && this.IsConstructorSanitizing == other.IsConstructorSanitizing
                 && this.SanitizingMethods == other.SanitizingMethods
                 && this.SanitizingMethodsNeedsValueContentAnalysis == other.SanitizingMethodsNeedsValueContentAnalysis

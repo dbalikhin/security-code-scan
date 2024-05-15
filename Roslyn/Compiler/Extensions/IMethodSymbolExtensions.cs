@@ -315,6 +315,68 @@ namespace Analyzer.Utilities.Extensions
         /// <summary>
         /// Gets the <see cref="DisposeMethodKind"/> for the given method.
         /// </summary>
+        public static DisposeMethodKind GetDisposeMethodKind(
+            this IMethodSymbol method,
+            INamedTypeSymbol? iDisposable,
+            INamedTypeSymbol? iAsyncDisposable,
+            INamedTypeSymbol? task,
+            INamedTypeSymbol? valueTask)
+        {
+            if (method.ContainingType.IsDisposable(iDisposable, iAsyncDisposable))
+            {
+                if (IsDisposeImplementation(method, iDisposable) ||
+                    (Equals(method.ContainingType, iDisposable) &&
+                     method.HasDisposeMethodSignature())
+#if CODEANALYSIS_V3_OR_BETTER
+                    || (method.ContainingType.IsRefLikeType &&
+                     method.HasDisposeSignatureByConvention())
+#endif
+                )
+                {
+                    return DisposeMethodKind.Dispose;
+                }
+                else if (method.HasDisposeBoolMethodSignature())
+                {
+                    return DisposeMethodKind.DisposeBool;
+                }
+                else if (method.HasDisposeAsyncMethodSignature(task, valueTask))
+                {
+                    return DisposeMethodKind.DisposeAsync;
+                }
+                else if (method.HasOverriddenDisposeCoreAsyncMethodSignature(task))
+                {
+                    return DisposeMethodKind.DisposeCoreAsync;
+                }
+                else if (method.HasDisposeCloseMethodSignature())
+                {
+                    return DisposeMethodKind.Close;
+                }
+                else if (method.HasDisposeCloseAsyncMethodSignature(task))
+                {
+                    return DisposeMethodKind.CloseAsync;
+                }
+            }
+
+            return DisposeMethodKind.None;
+        }
+
+        /// <summary>
+        /// Checks if the given method has the signature "Task DisposeAsync()" or "ValueTask DisposeAsync()".
+        /// </summary>
+        private static bool HasDisposeAsyncMethodSignature(this IMethodSymbol method,
+            INamedTypeSymbol? task,
+            INamedTypeSymbol? valueTask)
+        {
+            return method.Name == "DisposeAsync" &&
+                method.MethodKind == MethodKind.Ordinary &&
+                method.Parameters.IsEmpty &&
+                (method.ReturnType.Equals(task) ||
+                 method.ReturnType.Equals(valueTask));
+        }
+
+        /// <summary>
+        /// Gets the <see cref="DisposeMethodKind"/> for the given method.
+        /// </summary>
         public static DisposeMethodKind GetDisposeMethodKind(this IMethodSymbol method, Compilation compilation)
         {
             INamedTypeSymbol? iDisposable = compilation.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIDisposable);

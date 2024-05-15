@@ -140,6 +140,36 @@ namespace Analyzer.Utilities.Extensions
         /// </summary>
         public static bool IsDisposable(this ITypeSymbol type,
             INamedTypeSymbol? iDisposable,
+            INamedTypeSymbol? iAsyncDisposable)
+        {
+            if (type.IsReferenceType)
+            {
+                return IsInterfaceOrImplementsInterface(type, iDisposable)
+                    || IsInterfaceOrImplementsInterface(type, iAsyncDisposable);
+            }
+
+#if CODEANALYSIS_V3_OR_BETTER
+            if (type.IsRefLikeType)
+            {
+                return type.GetMembers("Dispose").OfType<IMethodSymbol>()
+                    .Any(method => method.HasDisposeSignatureByConvention());
+            }
+#endif
+
+            return false;
+
+            static bool IsInterfaceOrImplementsInterface(ITypeSymbol type, INamedTypeSymbol? interfaceType)
+                => interfaceType != null &&
+                   (Equals(type, interfaceType) || type.AllInterfaces.Contains(interfaceType));
+        }
+
+
+        /// <summary>
+        /// Indicates if the given <paramref name="type"/> is disposable,
+        /// and thus can be used in a <code>using</code> or <code>await using</code> statement.
+        /// </summary>
+        public static bool IsDisposable(this ITypeSymbol type,
+            INamedTypeSymbol? iDisposable,
             INamedTypeSymbol? iAsyncDisposable,
             INamedTypeSymbol? configuredAsyncDisposable)
         {

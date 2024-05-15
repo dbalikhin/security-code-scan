@@ -652,5 +652,10 @@ namespace Analyzer.Utilities
         public const string MicrosoftAspNetCoreMvcPhysicalFileResult = "Microsoft.AspNetCore.Mvc.PhysicalFileResult";
         public const string SystemWebUIWebControlsFileUpload = "System.Web.UI.WebControls.FileUpload";
         public const string SystemNetWebClient = "System.Net.WebClient";
+
+        // nunit
+        public const string NUnitFrameworkTestCaseAttribute = "NUnit.Framework.TestCaseAttribute";
+        public const string NUnitFrameworkTestCaseSourceAttribute = "NUnit.Framework.TestCaseSourceAttribute";
+        public const string NUnitFrameworkTheoryAttribute = "NUnit.Framework.TheoryAttribute";
     }
 }
