@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -10,7 +10,7 @@ namespace Analyzer.Utilities
     /// <summary>
     ///     Provides <see langword="static"/> methods for parsing words from text.
     /// </summary>
-    internal class WordParser
+    internal sealed class WordParser
     {
         // WordParser has two distinct modes; one where it breaks up only words in
         // a given piece of text, and the other where it breaks up both words
@@ -281,10 +281,7 @@ namespace Analyzer.Utilities
         /// </returns>
         public string? PeekWord()
         {
-            if (_peekedWord == null)
-            {
-                _peekedWord = NextWordCore();
-            }
+            _peekedWord ??= NextWordCore();
 
             return _peekedWord;
         }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Concurrent;
@@ -45,6 +45,7 @@ namespace Analyzer.Utilities.PooledObjects
 
         public ImmutableDictionary<TKey, TValue> ToImmutableDictionaryAndFree<TKey, TValue>(
            Func<KeyValuePair<K, V>, TKey> keySelector, Func<KeyValuePair<K, V>, TValue> elementSelector, IEqualityComparer<TKey> comparer)
+            where TKey : notnull
         {
             ImmutableDictionary<TKey, TValue> result;
             if (Count == 0)
@@ -91,7 +92,7 @@ namespace Analyzer.Utilities.PooledObjects
         {
             var pool = keyComparer == null ?
                 s_poolInstance :
-                s_poolInstancesByComparer.GetOrAdd(keyComparer, c => CreatePool(c));
+                s_poolInstancesByComparer.GetOrAdd(keyComparer, CreatePool);
             var instance = pool.Allocate();
             Debug.Assert(instance.Count == 0);
             return instance;

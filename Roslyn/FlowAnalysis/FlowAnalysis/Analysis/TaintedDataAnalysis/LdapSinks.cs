@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Immutable;
 using Analyzer.Utilities.PooledObjects;
@@ -33,13 +33,17 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
                 sinkProperties: new[] {
                     "Filter",
                 },
-                sinkMethodParameters: null);
+                sinkMethodParameters: new[] {
+                    (".ctor", new[] { "filter" } ),
+                });
             builder.AddSinkInfo(
                 WellKnownTypeNames.SystemDirectoryDirectoryEntry,
                 SinkKind.Ldap,
                 isInterface: false,
                 isAnyStringParameterInConstructorASink: false,
-                sinkProperties: null,
+                sinkProperties: new[] {
+                    "Path",    
+                },
                 sinkMethodParameters: new[] {
                     (".ctor", new[] { "path", "adsObject" } ),
                 });

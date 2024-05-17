@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -64,7 +64,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         protected override TAbstractAnalysisValue ComputeAnalysisValueForEscapedRefOrOutArgument(IArgumentOperation operation, TAbstractAnalysisValue defaultValue)
         {
-            Debug.Assert(operation.Parameter.RefKind is RefKind.Ref or RefKind.Out);
+            Debug.Assert(operation.Parameter!.RefKind is RefKind.Ref or RefKind.Out);
 
             if (operation.Value.Type != null)
             {
@@ -96,7 +96,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             // of arguments from the input analysis data.
             Debug.Assert(Equals(analysisEntity.Symbol, parameter));
             if (DataFlowAnalysisContext.InterproceduralAnalysisData == null &&
-                TryGetPointsToAbstractValueAtEntryBlockEnd(analysisEntity, out PointsToAbstractValue pointsToAbstractValue))
+                TryGetPointsToAbstractValueAtEntryBlockEnd(analysisEntity, out var pointsToAbstractValue))
             {
                 SetValueForParameterPointsToLocationOnEntry(parameter, pointsToAbstractValue);
             }
@@ -104,7 +104,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         protected override void EscapeValueForParameterOnExit(IParameterSymbol parameter, AnalysisEntity analysisEntity)
         {
-            Debug.Assert(Equals(analysisEntity.Symbol, parameter));
+            Debug.Assert(SymbolEqualityComparer.Default.Equals(analysisEntity.Symbol, parameter));
             var escapedLocationsForParameter = GetEscapedLocations(analysisEntity);
             if (!escapedLocationsForParameter.IsEmpty)
             {
@@ -142,49 +142,49 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public override TAbstractAnalysisValue VisitObjectCreation(IObjectCreationOperation operation, object? argument)
         {
-            var value = base.VisitObjectCreation(operation, argument);
+            var value = base.VisitObjectCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitTypeParameterObjectCreation(ITypeParameterObjectCreationOperation operation, object? argument)
         {
-            var value = base.VisitTypeParameterObjectCreation(operation, argument);
+            var value = base.VisitTypeParameterObjectCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitDynamicObjectCreation(IDynamicObjectCreationOperation operation, object? argument)
         {
-            var value = base.VisitDynamicObjectCreation(operation, argument);
+            var value = base.VisitDynamicObjectCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitAnonymousObjectCreation(IAnonymousObjectCreationOperation operation, object? argument)
         {
-            var value = base.VisitAnonymousObjectCreation(operation, argument);
+            var value = base.VisitAnonymousObjectCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitArrayCreation(IArrayCreationOperation operation, object? argument)
         {
-            var value = base.VisitArrayCreation(operation, argument);
+            var value = base.VisitArrayCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitDelegateCreation(IDelegateCreationOperation operation, object? argument)
         {
-            var value = base.VisitDelegateCreation(operation, argument);
+            var value = base.VisitDelegateCreation(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }
 
         public override TAbstractAnalysisValue VisitReDimClause(IReDimClauseOperation operation, object? argument)
         {
-            var value = base.VisitReDimClause(operation, argument);
+            var value = base.VisitReDimClause(operation, argument)!;
             PointsToAbstractValue instanceLocation = GetPointsToAbstractValue(operation);
             return HandleInstanceCreation(operation, instanceLocation, value);
         }

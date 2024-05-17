@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -52,8 +52,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 
                 if (wellKnownTypeProvider.TryGetOrCreateTypeByMetadataName(info.FullTypeName, out INamedTypeSymbol? namedTypeSymbol))
                 {
-                    if (namedTypeSymbol.TypeKind == TypeKind.Interface)
-                    //if (info.IsInterface)
+                    if (info.IsInterface)
                     {
                         interfaceInfosBuilder[namedTypeSymbol] = info;
                     }
@@ -127,14 +126,14 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             if (!this.InterfaceInfos.IsEmpty)
             {
                 if (namedTypeSymbol.TypeKind == TypeKind.Interface
-                    && this.InterfaceInfos.TryGetValue(namedTypeSymbol.OriginalDefinition, out TInfo infoForInterfaceSymbol))
+                    && this.InterfaceInfos.TryGetValue(namedTypeSymbol.OriginalDefinition, out var infoForInterfaceSymbol))
                 {
                     yield return infoForInterfaceSymbol;
                 }
 
                 foreach (INamedTypeSymbol interfaceSymbol in namedTypeSymbol.AllInterfaces)
                 {
-                    if (this.InterfaceInfos.TryGetValue(interfaceSymbol.OriginalDefinition, out TInfo info))
+                    if (this.InterfaceInfos.TryGetValue(interfaceSymbol.OriginalDefinition, out var info))
                     {
                         yield return info;
                     }
@@ -145,7 +144,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             {
                 foreach (INamedTypeSymbol typeSymbol in namedTypeSymbol.GetBaseTypesAndThis())
                 {
-                    if (this.ConcreteInfos.TryGetValue(typeSymbol.OriginalDefinition, out TInfo info))
+                    if (this.ConcreteInfos.TryGetValue(typeSymbol.OriginalDefinition, out var info))
                     {
                         yield return info;
                     }
@@ -161,11 +160,11 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             }
 
             return other != null
-                && this.ConcreteInfos == other.ConcreteInfos
                 && this.InterfaceInfos == other.InterfaceInfos
                 && this.RequiresValueContentAnalysis == other.RequiresValueContentAnalysis
                 && this.RequiresParameterReferenceAnalysis == other.RequiresParameterReferenceAnalysis
-                && this.RequiresFieldReferenceAnalysis == other.RequiresFieldReferenceAnalysis;
+                && this.RequiresFieldReferenceAnalysis == other.RequiresFieldReferenceAnalysis
+                && this.ConcreteInfos == other.ConcreteInfos;
         }
 
         public override bool Equals(object obj)
@@ -176,11 +175,11 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public override int GetHashCode()
         {
             var hashCode = new RoslynHashCode();
-            HashUtilities.Combine(this.ConcreteInfos, ref hashCode);
             HashUtilities.Combine(this.InterfaceInfos, ref hashCode);
             hashCode.Add(this.RequiresValueContentAnalysis.GetHashCode());
             hashCode.Add(this.RequiresParameterReferenceAnalysis.GetHashCode());
             hashCode.Add(this.RequiresFieldReferenceAnalysis.GetHashCode());
+            HashUtilities.Combine(this.ConcreteInfos, ref hashCode);
             return hashCode.ToHashCode();
         }
     }

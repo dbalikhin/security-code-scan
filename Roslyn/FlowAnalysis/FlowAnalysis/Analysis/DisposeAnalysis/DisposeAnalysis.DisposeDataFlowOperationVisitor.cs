@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -53,7 +53,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                 }
             }
 
-            protected override DisposeAbstractValue GetAbstractDefaultValue(ITypeSymbol type) => DisposeAbstractValue.NotDisposable;
+            protected override DisposeAbstractValue GetAbstractDefaultValue(ITypeSymbol? type) => DisposeAbstractValue.NotDisposable;
 
             protected override DisposeAbstractValue GetAbstractValue(AbstractLocation location) => CurrentAnalysisData.TryGetValue(location, out var value) ? value : ValueDomain.UnknownOrMayBeValue;
 
@@ -90,22 +90,9 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                     return defaultValue;
                 }
 
-                // Special case: Do not track System.Threading.Tasks.Task as you are not required to dispose them.
-                if (TaskNamedType != null &&
-                    instanceType.DerivesFrom(TaskNamedType, baseTypesOnly: true))
-                {
-                    return defaultValue;
-                }
-
-                // StringReader doesn't need to be disposed: https://docs.microsoft.com/en-us/dotnet/api/system.io.stringreader?view=netframework-4.8
-                if (StringReaderType != null &&
-                    instanceType.Equals(StringReaderType))
-                {
-                    return defaultValue;
-                }
-
-                // Handle user option for additional excluded types
-                if (DataFlowAnalysisContext.IsConfiguredToSkipAnalysis(instanceType))
+                // Handle special cases where we don't want to track the type although we know
+                // it is disposable (user option, special types...)
+                if (DataFlowAnalysisContext.IsDisposableTypeNotRequiringToBeDisposed(instanceType))
                 {
                     return defaultValue;
                 }
@@ -196,7 +183,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
 
             protected override DisposeAbstractValue ComputeAnalysisValueForEscapedRefOrOutArgument(IArgumentOperation operation, DisposeAbstractValue defaultValue)
             {
-                Debug.Assert(operation.Parameter.RefKind is RefKind.Ref or RefKind.Out);
+                Debug.Assert(operation.Parameter!.RefKind is RefKind.Ref or RefKind.Out);
 
                 // Special case: don't flag "out" arguments for "bool TryGetXXX(..., out value)" invocations.
                 if (operation.Parent is IInvocationOperation invocation &&
@@ -232,10 +219,12 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                 return DisposeAbstractValue.NotDisposable;
             }
 
-            public override DisposeAbstractValue Visit(IOperation operation, object? argument)
+            public override DisposeAbstractValue Visit(IOperation? operation, object? argument)
             {
                 var value = base.Visit(operation, argument);
-                HandlePossibleEscapingOperation(operation, GetEscapedLocations(operation));
+
+                if (operation != null)
+                    HandlePossibleEscapingOperation(operation, GetEscapedLocations(operation));
 
                 return value;
             }
@@ -287,6 +276,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                         {
                             goto case DisposeMethodKind.Dispose;
                         }
+
                         break;
 
                     default:
@@ -344,7 +334,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                         return;
                     }
                     else if (FlowBranchConditionKind == ControlFlowConditionKind.WhenFalse &&
-                        operation.Parameter.RefKind == RefKind.Out &&
+                        operation.Parameter?.RefKind == RefKind.Out &&
                         operation.Parent is IInvocationOperation invocation &&
                         invocation.TargetMethod.ReturnType.SpecialType == SpecialType.System_Boolean)
                     {
@@ -371,7 +361,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                 }
 
                 // Ref or out argument values from callee might be escaped by assigning to field.
-                if (operation.Parameter.RefKind is RefKind.Out or RefKind.Ref)
+                if (operation.Parameter?.RefKind is RefKind.Out or RefKind.Ref)
                 {
                     HandlePossibleEscapingOperation(operation, GetEscapedLocations(operation));
                 }
@@ -381,7 +371,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.DisposeAnalysis
                 // Local functions.
                 bool IsDisposeOwnershipTransfer()
                 {
-                    if (operation.Parameter.RefKind == RefKind.Out)
+                    if (operation.Parameter == null ||
+                        operation.Parameter.RefKind == RefKind.Out)
                     {
                         // Out arguments are always owned by the caller.
                         return false;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -9,35 +9,40 @@ namespace Analyzer.Utilities
     /// Represents a type with a single value. This type is often used to denote the successful completion of a void-returning method (C#) or a Sub procedure (Visual Basic).
     /// </summary>
     /// <remarks>
-    /// This class is a duplicate from "https://github.com/dotnet/reactive/blob/master/Rx.NET/Source/src/System.Reactive/Unit.cs
+    /// This class is a duplicate from "https://github.com/dotnet/reactive/blob/main/Rx.NET/Source/src/System.Reactive/Unit.cs
     /// </remarks>
-    internal struct Unit : IEquatable<Unit>
+#if !TEST_UTILITIES
+    public struct Unit
+#else
+    internal struct Unit
+#endif
+     : IEquatable<Unit>
     {
         /// <summary>
         /// Determines whether the specified <see cref="Unit"/> value is equal to the current <see cref="Unit"/>. Because <see cref="Unit"/> has a single value, this always returns <c>true</c>.
         /// </summary>
         /// <param name="other">An object to compare to the current <see cref="Unit"/> value.</param>
         /// <returns>Because <see cref="Unit"/> has a single value, this always returns <c>true</c>.</returns>
-        public bool Equals(Unit other) => true;
+        public readonly bool Equals(Unit other) => true;
 
         /// <summary>
         /// Determines whether the specified System.Object is equal to the current <see cref="Unit"/>.
         /// </summary>
         /// <param name="obj">The System.Object to compare with the current <see cref="Unit"/>.</param>
         /// <returns><c>true</c> if the specified System.Object is a <see cref="Unit"/> value; otherwise, <c>false</c>.</returns>
-        public override bool Equals(object? obj) => obj is Unit;
+        public override readonly bool Equals(object? obj) => obj is Unit;
 
         /// <summary>
         /// Returns the hash code for the current <see cref="Unit"/> value.
         /// </summary>
         /// <returns>A hash code for the current <see cref="Unit"/> value.</returns>
-        public override int GetHashCode() => 0;
+        public override readonly int GetHashCode() => 0;
 
         /// <summary>
         /// Returns a string representation of the current <see cref="Unit"/> value.
         /// </summary>
         /// <returns>String representation of the current <see cref="Unit"/> value.</returns>
-        public override string ToString() => "()";
+        public override readonly string ToString() => "()";
 
         /// <summary>
         /// Determines whether the two specified <see cref="Unit"/> values are equal. Because <see cref="Unit"/> has a single value, this always returns <c>true</c>.

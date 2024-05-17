@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 #if HAS_IOPERATION
 
@@ -18,7 +18,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
 {
     /// <summary>
     /// Code analysis metrics data.
-    /// See https://docs.microsoft.com/visualstudio/code-quality/code-metrics-values for more details
+    /// See https://learn.microsoft.com/visualstudio/code-quality/code-metrics-values for more details
     /// </summary>
     public abstract partial class CodeAnalysisMetricData
     {
@@ -162,7 +162,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                 builder.Append($", DepthInherit: {DepthOfInheritance}");
             }
 
-            builder.Append($")");
+            builder.Append(')');
             appendChildren(indent: "   ");
             return builder.ToString();
 
@@ -207,6 +207,19 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
         }
 
         /// <summary>
+        /// Computes <see cref="CodeAnalysisMetricData"/> for the given <paramref name="context"/>.
+        /// </summary>
+        public static CodeAnalysisMetricData ComputeSynchronously(CodeMetricsAnalysisContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            return ComputeSynchronously(context.Compilation.Assembly, context);
+        }
+
+        /// <summary>
         /// Computes <see cref="CodeAnalysisMetricData"/> for the given <paramref name="symbol"/> from the given <paramref name="compilation"/>.
         /// </summary>
         [Obsolete("Use ComputeAsync(ISymbol, CodeMetricsAnalysisContext) instead.")]
@@ -240,6 +253,11 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                 throw new ArgumentNullException(nameof(context));
             }
 
+            if (context.CancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled<CodeAnalysisMetricData>(context.CancellationToken);
+            }
+
             return ComputeAsync(symbol, context);
 
             static async Task<CodeAnalysisMetricData> ComputeAsync(ISymbol symbol, CodeMetricsAnalysisContext context)
@@ -252,26 +270,70 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
 
                     SymbolKind.NamedType => await NamedTypeMetricData.ComputeAsync((INamedTypeSymbol)symbol, context).ConfigureAwait(false),
 
-                    SymbolKind.Method => await MethodMetricData.ComputeAsync((IMethodSymbol)symbol, context).ConfigureAwait(false),
+                    SymbolKind.Method => MethodMetricData.Compute((IMethodSymbol)symbol, context),
 
-                    SymbolKind.Property => await PropertyMetricData.ComputeAsync((IPropertySymbol)symbol, context).ConfigureAwait(false),
+                    SymbolKind.Property => PropertyMetricData.Compute((IPropertySymbol)symbol, context),
 
-                    SymbolKind.Field => await FieldMetricData.ComputeAsync((IFieldSymbol)symbol, context).ConfigureAwait(false),
+                    SymbolKind.Field => FieldMetricData.Compute((IFieldSymbol)symbol, context),
 
-                    SymbolKind.Event => await EventMetricData.ComputeAsync((IEventSymbol)symbol, context).ConfigureAwait(false),
+                    SymbolKind.Event => EventMetricData.Compute((IEventSymbol)symbol, context),
 
                     _ => throw new NotSupportedException(),
                 };
             }
         }
 
+        /// <summary>
+        /// Computes <see cref="CodeAnalysisMetricData"/> for the given <paramref name="symbol"/> from the given <paramref name="context"/>.
+        /// </summary>
+        public static CodeAnalysisMetricData ComputeSynchronously(ISymbol symbol, CodeMetricsAnalysisContext context)
+        {
+            if (symbol == null)
+            {
+                throw new ArgumentNullException(nameof(symbol));
+            }
+
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            context.CancellationToken.ThrowIfCancellationRequested();
+
+            return symbol.Kind switch
+            {
+                SymbolKind.Assembly => AssemblyMetricData.ComputeSynchronously((IAssemblySymbol)symbol, context),
+
+                SymbolKind.Namespace => NamespaceMetricData.ComputeSynchronously((INamespaceSymbol)symbol, context),
+
+                SymbolKind.NamedType => NamedTypeMetricData.ComputeSynchronously((INamedTypeSymbol)symbol, context),
+
+                SymbolKind.Method => MethodMetricData.Compute((IMethodSymbol)symbol, context),
+
+                SymbolKind.Property => PropertyMetricData.Compute((IPropertySymbol)symbol, context),
+
+                SymbolKind.Field => FieldMetricData.Compute((IFieldSymbol)symbol, context),
+
+                SymbolKind.Event => EventMetricData.Compute((IEventSymbol)symbol, context),
+
+                _ => throw new NotSupportedException(),
+            };
+        }
+
         internal static async Task<ImmutableArray<CodeAnalysisMetricData>> ComputeAsync(IEnumerable<ISymbol> children, CodeMetricsAnalysisContext context)
             => (await Task.WhenAll(
                 from child in children
 #if !LEGACY_CODE_METRICS_MODE // Skip implicitly declared symbols, such as default constructor, for non-legacy mode.
-                where !child.IsImplicitlyDeclared || (child as INamespaceSymbol)?.IsGlobalNamespace == true
+                where !child.IsImplicitlyDeclared || child is INamespaceSymbol { IsGlobalNamespace: true }
 #endif
                 select Task.Run(() => ComputeAsync(child, context))).ConfigureAwait(false)).ToImmutableArray();
+
+        internal static ImmutableArray<CodeAnalysisMetricData> ComputeSynchronously(IEnumerable<ISymbol> children, CodeMetricsAnalysisContext context)
+            => (from child in children
+#if !LEGACY_CODE_METRICS_MODE // Skip implicitly declared symbols, such as default constructor, for non-legacy mode.
+                where !child.IsImplicitlyDeclared || child is INamespaceSymbol { IsGlobalNamespace: true }
+#endif
+                select ComputeSynchronously(child, context)).ToImmutableArray();
     }
 }
 

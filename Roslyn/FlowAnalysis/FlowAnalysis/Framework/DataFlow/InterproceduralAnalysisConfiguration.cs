@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -59,7 +59,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
             uint defaultMaxInterproceduralMethodCallChain = DefaultMaxInterproceduralMethodCallChain,
             uint defaultMaxInterproceduralLambdaOrLocalFunctionCallChain = DefaultMaxInterproceduralLambdaOrLocalFunctionCallChain)
         {
-            var kind = analyzerOptions.GetInterproceduralAnalysisKindOption(rule, tree, compilation, defaultInterproceduralAnalysisKind, cancellationToken);
+            var kind = analyzerOptions.GetInterproceduralAnalysisKindOption(rule, tree, compilation, defaultInterproceduralAnalysisKind);
 
             var maxInterproceduralMethodCallChain = analyzerOptions.GetUnsignedIntegralOptionValue(
                 optionName: EditorConfigOptionNames.MaxInterproceduralMethodCallChain,
@@ -125,20 +125,20 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
         public uint MaxInterproceduralLambdaOrLocalFunctionCallChain { get; }
 
-        public override bool Equals(object obj)
+        public override readonly bool Equals(object obj)
         {
             return obj is InterproceduralAnalysisConfiguration otherParameters &&
                 Equals(otherParameters);
         }
 
-        public bool Equals(InterproceduralAnalysisConfiguration other)
+        public readonly bool Equals(InterproceduralAnalysisConfiguration other)
         {
             return InterproceduralAnalysisKind == other.InterproceduralAnalysisKind &&
                 MaxInterproceduralMethodCallChain == other.MaxInterproceduralMethodCallChain &&
                 MaxInterproceduralLambdaOrLocalFunctionCallChain == other.MaxInterproceduralLambdaOrLocalFunctionCallChain;
         }
 
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return RoslynHashCode.Combine(
                 InterproceduralAnalysisKind.GetHashCode(),

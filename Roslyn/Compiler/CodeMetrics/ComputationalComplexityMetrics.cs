@@ -1,16 +1,13 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
-#if HAS_IOPERATION
 
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using Analyzer.Utilities.Lightup;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 
-#if LEGACY_CODE_METRICS_MODE
-using Analyzer.Utilities.Extensions;
-#endif
 
 namespace Microsoft.CodeAnalysis.CodeMetrics
 {
@@ -99,7 +96,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
             ImmutableHashSet<object>.Builder? distinctReferencedConstantsBuilder = null;
 
             // Explicit user applied attribute.
-            if (operationBlock.Kind == OperationKind.None &&
+            if ((operationBlock.Kind is OperationKind.None or OperationKindEx.Attribute) &&
                 hasAnyExplicitExpression(operationBlock))
             {
                 executableLinesOfCode += 1;
@@ -114,13 +111,6 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                     continue;
                 }
 
-#if LEGACY_CODE_METRICS_MODE
-                // Legacy mode does not account for code within lambdas/local functions for code metrics.
-                if (operation.IsWithinLambdaOrLocalFunction(out _))
-                {
-                    continue;
-                }
-#endif
 
                 if (operation.ConstantValue.HasValue)
                 {
@@ -154,6 +144,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                             countOperator(operation);
                             countOperand(field);
                         }
+
                         continue;
                     case OperationKind.PropertyInitializer:
                         foreach (var property in ((IPropertyInitializerOperation)operation).InitializedProperties)
@@ -161,6 +152,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                             countOperator(operation);
                             countOperand(property);
                         }
+
                         continue;
                     case OperationKind.ParameterInitializer:
                         countOperator(operation);
@@ -176,6 +168,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                         {
                             countOperand(variableDeclarator.Symbol);
                         }
+
                         continue;
 
                     // Invocations and Object creations.
@@ -186,6 +179,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                         {
                             countOperand(invocation.TargetMethod);
                         }
+
                         continue;
                     case OperationKind.ObjectCreation:
                         countOperator(operation);
@@ -224,6 +218,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                         {
                             countOperator(operation);
                         }
+
                         continue;
 
                     // Other common operators.
@@ -270,6 +265,7 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                         {
                             countOperator(operation);
                         }
+
                         continue;
                 }
             }
@@ -318,8 +314,8 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
 
             static bool hasAnyExplicitExpression(IOperation operation)
             {
-                // Check if all descendants are either implicit or are explicit non-branch operations with no constant value or type, indicating it is not user written code.
-                return !operation.DescendantsAndSelf().All(o => o.IsImplicit || (!o.ConstantValue.HasValue && o.Type == null && o.Kind != OperationKind.Branch));
+                // Check if all descendants are either implicit or are explicit non-branch, non-attribute operations with no constant value or type, indicating it is not user written code.
+                return !operation.DescendantsAndSelf().All(o => o.IsImplicit || (!o.ConstantValue.HasValue && o.Type == null && o.Kind is not (OperationKind.Branch or OperationKindEx.Attribute)));
             }
 
             void countOperator(IOperation operation)
@@ -329,8 +325,11 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                 distinctOperatorKindsBuilder.Add(operation.Kind);
             }
 
-            void countOperand(ISymbol symbol)
+            void countOperand(ISymbol? symbol)
             {
+                if (symbol is null)
+                    return;
+
                 symbolUsageCounts++;
                 distinctReferencedSymbolsBuilder ??= ImmutableHashSet.CreateBuilder<ISymbol>();
                 distinctReferencedSymbolsBuilder.Add(symbol);
@@ -388,10 +387,12 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
                 {
                     count += _distinctBinaryOperatorKinds.Count - 1;
                 }
+
                 if (_distinctUnaryOperatorKinds.Count > 1)
                 {
                     count += _distinctUnaryOperatorKinds.Count - 1;
                 }
+
                 if (_distinctCaseKinds.Count > 1)
                 {
                     count += _distinctCaseKinds.Count - 1;
@@ -434,4 +435,3 @@ namespace Microsoft.CodeAnalysis.CodeMetrics
     }
 }
 
-#endif

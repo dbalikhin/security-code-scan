@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections;
@@ -137,7 +137,7 @@ namespace Analyzer.Utilities.PooledObjects
         }
 
 #pragma warning disable CA1815 // Override equals and operator equals on value types
-        public struct KeyEnumerator
+        public readonly struct KeyEnumerator
 #pragma warning restore CA1815 // Override equals and operator equals on value types
         {
             private readonly IEnumerator<KeyValuePair<T, byte>> _kvpEnumerator;

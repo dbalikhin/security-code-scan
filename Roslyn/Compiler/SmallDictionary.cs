@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections;
@@ -9,7 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Analyzer.Utilities
 {
     /// <summary>
-    /// Copied from https://github.com/dotnet/roslyn/blob/master/src/Compilers/Core/Portable/Collections/SmallDictionary.cs
+    /// Copied from https://github.com/dotnet/roslyn/blob/main/src/Compilers/Core/Portable/Collections/SmallDictionary.cs
     /// Dictionary designed to hold small number of items.
     /// Compared to the regular Dictionary, average overhead per-item is roughly the same, but
     /// unlike regular dictionary, this one is based on an AVL tree and as such does not require
@@ -35,7 +35,6 @@ namespace Analyzer.Utilities
         where K : notnull
     {
         private AvlNode? _root;
-
         public readonly IEqualityComparer<K> Comparer;
 
         // https://github.com/dotnet/roslyn/issues/40344
@@ -75,7 +74,7 @@ namespace Analyzer.Utilities
             _root = Remove(_root, GetHashCode(key));
         }
 
-        private AvlNode? Remove(AvlNode? currentNode, int hashCode)
+        private static AvlNode? Remove(AvlNode? currentNode, int hashCode)
         {
             if (currentNode == null)
             {
@@ -138,13 +137,13 @@ namespace Analyzer.Utilities
 
             if (balance == -2)
             {
-                rotated = currentNode.Right!.Balance < 0 ?
+                rotated = currentNode.Right!.Balance <= 0 ?
                     LeftSimple(currentNode) :
                     LeftComplex(currentNode);
             }
             else if (balance == 2)
             {
-                rotated = currentNode.Left!.Balance > 0 ?
+                rotated = currentNode.Left!.Balance >= 0 ?
                     RightSimple(currentNode) :
                     RightComplex(currentNode);
             }
@@ -168,7 +167,8 @@ namespace Analyzer.Utilities
 
         private static int Height(AvlNode? node)
         {
-            if (node == null) return 0;
+            if (node == null)
+                return 0;
 
             int a = Height(node.Left);
             int b = Height(node.Right);
@@ -210,7 +210,7 @@ namespace Analyzer.Utilities
 
         public bool ContainsKey(K key)
         {
-            return TryGetValue(key, out V _);
+            return TryGetValue(key, out _);
         }
 
 #pragma warning disable CA1822
@@ -291,7 +291,8 @@ namespace Analyzer.Utilities
             public static int AssertBalanced(AvlNode? V)
 #pragma warning restore CA1000 // Do not declare static members on generic types
             {
-                if (V == null) return 0;
+                if (V == null)
+                    return 0;
 
                 int a = AssertBalanced(V.Left);
                 int b = AssertBalanced(V.Right);
@@ -612,7 +613,7 @@ namespace Analyzer.Utilities
         public KeyCollection Keys => new(this);
 
 #pragma warning disable CA1815 // Override equals and operator equals on value types
-        internal struct KeyCollection : IEnumerable<K>
+        internal readonly struct KeyCollection : IEnumerable<K>
         {
             private readonly SmallDictionary<K, V> _dict;
 
@@ -623,9 +624,9 @@ namespace Analyzer.Utilities
 
             public struct Enumerator
             {
-                private readonly Stack<AvlNode> _stack;
+                private readonly Stack<AvlNode>? _stack;
                 private Node? _next;
-                private Node _current;
+                private Node? _current;
 
                 public Enumerator(SmallDictionary<K, V> dict)
                     : this()
@@ -646,7 +647,7 @@ namespace Analyzer.Utilities
                     }
                 }
 
-                public K Current => _current.Key;
+                public readonly K Current => _current!.Key;
 
                 public bool MoveNext()
                 {
@@ -666,17 +667,17 @@ namespace Analyzer.Utilities
                     _current = curr;
                     _next = curr.Next;
 
-                    PushIfNotNull(curr.Left);
-                    PushIfNotNull(curr.Right);
+                    PushIfNotNull(_stack, curr.Left);
+                    PushIfNotNull(_stack, curr.Right);
 
                     return true;
-                }
 
-                private void PushIfNotNull(AvlNode? child)
-                {
-                    if (child != null)
+                    static void PushIfNotNull(Stack<AvlNode> stack, AvlNode? child)
                     {
-                        _stack.Push(child);
+                        if (child != null)
+                        {
+                            stack.Push(child);
+                        }
                     }
                 }
             }
@@ -687,7 +688,7 @@ namespace Analyzer.Utilities
             }
 
 #pragma warning disable CA1063, CA1816 // Implement IDisposable Correctly
-            public class EnumerableCore : IEnumerator<K>
+            public sealed class EnumerableCore : IEnumerator<K>
             {
                 private Enumerator _e;
 
@@ -728,7 +729,7 @@ namespace Analyzer.Utilities
 
         public ValueCollection Values => new(this);
 
-        internal struct ValueCollection : IEnumerable<V>
+        internal readonly struct ValueCollection : IEnumerable<V>
         {
             private readonly SmallDictionary<K, V> _dict;
 
@@ -739,9 +740,9 @@ namespace Analyzer.Utilities
 
             public struct Enumerator
             {
-                private readonly Stack<AvlNode> _stack;
+                private readonly Stack<AvlNode>? _stack;
                 private Node? _next;
-                private Node _current;
+                private Node? _current;
 
                 public Enumerator(SmallDictionary<K, V> dict)
                     : this()
@@ -764,7 +765,7 @@ namespace Analyzer.Utilities
                     }
                 }
 
-                public V Current => _current.Value;
+                public readonly V Current => _current!.Value;
 
                 public bool MoveNext()
                 {
@@ -784,17 +785,17 @@ namespace Analyzer.Utilities
                     _current = curr;
                     _next = curr.Next;
 
-                    PushIfNotNull(curr.Left);
-                    PushIfNotNull(curr.Right);
+                    PushIfNotNull(_stack, curr.Left);
+                    PushIfNotNull(_stack, curr.Right);
 
                     return true;
-                }
 
-                private void PushIfNotNull(AvlNode? child)
-                {
-                    if (child != null)
+                    static void PushIfNotNull(Stack<AvlNode> stack, AvlNode? child)
                     {
-                        _stack.Push(child);
+                        if (child != null)
+                        {
+                            stack.Push(child);
+                        }
                     }
                 }
             }
@@ -804,7 +805,7 @@ namespace Analyzer.Utilities
                 return new Enumerator(_dict);
             }
 
-            public class EnumerableCore : IEnumerator<V>
+            public sealed class EnumerableCore : IEnumerator<V>
             {
                 private Enumerator _e;
 
@@ -845,9 +846,9 @@ namespace Analyzer.Utilities
 
         public struct Enumerator
         {
-            private readonly Stack<AvlNode> _stack;
+            private readonly Stack<AvlNode>? _stack;
             private Node? _next;
-            private Node _current;
+            private Node? _current;
 
             public Enumerator(SmallDictionary<K, V> dict)
                 : this()
@@ -870,7 +871,7 @@ namespace Analyzer.Utilities
                 }
             }
 
-            public KeyValuePair<K, V> Current => new(_current.Key, _current.Value);
+            public readonly KeyValuePair<K, V> Current => new(_current!.Key, _current!.Value);
 
             public bool MoveNext()
             {
@@ -890,17 +891,17 @@ namespace Analyzer.Utilities
                 _current = curr;
                 _next = curr.Next;
 
-                PushIfNotNull(curr.Left);
-                PushIfNotNull(curr.Right);
+                PushIfNotNull(_stack, curr.Left);
+                PushIfNotNull(_stack, curr.Right);
 
                 return true;
-            }
 
-            private void PushIfNotNull(AvlNode? child)
-            {
-                if (child != null)
+                static void PushIfNotNull(Stack<AvlNode> stack, AvlNode? child)
                 {
-                    _stack.Push(child);
+                    if (child != null)
+                    {
+                        stack.Push(child);
+                    }
                 }
             }
         }
@@ -910,7 +911,7 @@ namespace Analyzer.Utilities
             return new Enumerator(this);
         }
 
-        public class EnumerableCore : IEnumerator<KeyValuePair<K, V>>
+        public sealed class EnumerableCore : IEnumerator<KeyValuePair<K, V>>
         {
             private Enumerator _e;
 

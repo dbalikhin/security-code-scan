@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -83,12 +83,12 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public override int GetHashCode()
         {
             var hashCode = new RoslynHashCode();
+            HashUtilities.Combine(this.SinkProperties, ref hashCode);
+            HashUtilities.Combine(this.SinkMethodParameters, ref hashCode);
             hashCode.Add(StringComparer.Ordinal.GetHashCode(this.FullTypeName));
             HashUtilities.Combine(this.SinkKinds, ref hashCode);
             hashCode.Add(this.IsInterface.GetHashCode());
             hashCode.Add(this.IsAnyStringParameterInConstructorASink.GetHashCode());
-            HashUtilities.Combine(this.SinkProperties, ref hashCode);
-            HashUtilities.Combine(this.SinkMethodParameters, ref hashCode);
             HashUtilities.Combine(this.SinkMethodMatchingParameters, ref hashCode);
             return hashCode.ToHashCode();
         }
@@ -106,8 +106,8 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
                 && this.IsInterface == other.IsInterface
                 && this.IsAnyStringParameterInConstructorASink == other.IsAnyStringParameterInConstructorASink
                 && this.SinkProperties == other.SinkProperties
-                && this.SinkMethodParameters == other.SinkMethodParameters
-                && this.SinkMethodMatchingParameters == other.SinkMethodMatchingParameters;
+                && this.SinkMethodMatchingParameters == other.SinkMethodMatchingParameters
+                && this.SinkMethodParameters == other.SinkMethodParameters;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Immutable;
@@ -251,9 +251,9 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
         internal ValueContentAbstractValue MergeBinaryOperation(
             ValueContentAbstractValue otherState,
             BinaryOperatorKind binaryOperatorKind,
-            ITypeSymbol leftType,
-            ITypeSymbol rightType,
-            ITypeSymbol resultType)
+            ITypeSymbol? leftType,
+            ITypeSymbol? rightType,
+            ITypeSymbol? resultType)
         {
             if (otherState == null)
             {
@@ -284,11 +284,11 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
         public override string ToString() =>
             string.Format(CultureInfo.InvariantCulture, "L({0}) NL:{1}", LiteralValues.Count, NonLiteralState.ToString()[0]);
 
-        private static bool TryMerge(object? value1, object? value2, BinaryOperatorKind binaryOperatorKind, ITypeSymbol type1, ITypeSymbol type2, ITypeSymbol resultType, [NotNullWhen(returnValue: true)] out object? result)
+        private static bool TryMerge(object? value1, object? value2, BinaryOperatorKind binaryOperatorKind, ITypeSymbol? type1, ITypeSymbol? type2, ITypeSymbol? resultType, [NotNullWhen(returnValue: true)] out object? result)
         {
             result = null;
 
-            if (value1 == null || value2 == null)
+            if (value1 == null || value2 == null || type1 == null || type2 == null || resultType == null)
             {
                 return false;
             }

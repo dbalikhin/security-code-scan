@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 #nullable disable warnings
 
@@ -97,7 +97,7 @@ namespace Analyzer.Utilities.Extensions
             if (!baseTypesOnly && candidateBaseType.TypeKind == TypeKind.Interface)
             {
                 var allInterfaces = symbol.AllInterfaces.OfType<ITypeSymbol>();
-                if (candidateBaseType.OriginalDefinition.Equals(candidateBaseType))
+                if (SymbolEqualityComparer.Default.Equals(candidateBaseType.OriginalDefinition, candidateBaseType))
                 {
                     // Candidate base type is not a constructed generic type, so use original definition for interfaces.
                     allInterfaces = allInterfaces.Select(i => i.OriginalDefinition);
@@ -123,7 +123,7 @@ namespace Analyzer.Utilities.Extensions
 
             while (symbol != null)
             {
-                if (symbol.Equals(candidateBaseType))
+                if (SymbolEqualityComparer.Default.Equals(symbol, candidateBaseType))
                 {
                     return true;
                 }
@@ -140,12 +140,17 @@ namespace Analyzer.Utilities.Extensions
         /// </summary>
         public static bool IsDisposable(this ITypeSymbol type,
             INamedTypeSymbol? iDisposable,
-            INamedTypeSymbol? iAsyncDisposable)
+            INamedTypeSymbol? iAsyncDisposable,
+            INamedTypeSymbol? configuredAsyncDisposable)
         {
             if (type.IsReferenceType)
             {
                 return IsInterfaceOrImplementsInterface(type, iDisposable)
                     || IsInterfaceOrImplementsInterface(type, iAsyncDisposable);
+            }
+            else if (SymbolEqualityComparer.Default.Equals(type, configuredAsyncDisposable))
+            {
+                return true;
             }
 
 #if CODEANALYSIS_V3_OR_BETTER
@@ -160,7 +165,7 @@ namespace Analyzer.Utilities.Extensions
 
             static bool IsInterfaceOrImplementsInterface(ITypeSymbol type, INamedTypeSymbol? interfaceType)
                 => interfaceType != null &&
-                   (Equals(type, interfaceType) || type.AllInterfaces.Contains(interfaceType));
+                   (SymbolEqualityComparer.Default.Equals(type, interfaceType) || type.AllInterfaces.Contains(interfaceType));
         }
 
         /// <summary>
@@ -208,7 +213,7 @@ namespace Analyzer.Utilities.Extensions
                 {
                     foreach (var attributeClassData in currentAttributeClass.GetAttributes())
                     {
-                        if (!Equals(attributeClassData.AttributeClass, attributeUsageAttribute))
+                        if (!SymbolEqualityComparer.Default.Equals(attributeClassData.AttributeClass, attributeUsageAttribute))
                         {
                             continue;
                         }
@@ -249,13 +254,10 @@ namespace Analyzer.Utilities.Extensions
                     {
                         attributes.Add(attribute);
                     }
-                    else if (!onlyIncludeInherited)
+                    else if (!onlyIncludeInherited &&
+                        (attribute.AttributeClass.Inherits(exportAttributeV1) || attribute.AttributeClass.Inherits(exportAttributeV2)))
                     {
-                        if (attribute.AttributeClass.Inherits(exportAttributeV1)
-                            || attribute.AttributeClass.Inherits(exportAttributeV2))
-                        {
-                            attributes.Add(attribute);
-                        }
+                        attributes.Add(attribute);
                     }
                 }
 
@@ -292,6 +294,13 @@ namespace Analyzer.Utilities.Extensions
         public static bool HasValueCopySemantics(this ITypeSymbol typeSymbol)
             => typeSymbol.IsValueType || typeSymbol.SpecialType == SpecialType.System_String;
 
+#if !MICROSOFT_CODEANALYSIS_PUBLIC_API_ANALYZERS
+        public static bool CanHoldNullValue([NotNullWhen(returnValue: true)] this ITypeSymbol? typeSymbol)
+            => typeSymbol.IsReferenceTypeOrNullableValueType() ||
+               typeSymbol?.IsRefLikeType == true ||
+               typeSymbol is ITypeParameterSymbol typeParameter && !typeParameter.IsValueType;
+#endif
+
         public static bool IsNonNullableValueType([NotNullWhen(returnValue: true)] this ITypeSymbol? typeSymbol)
             => typeSymbol != null && typeSymbol.IsValueType && typeSymbol.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T;
 
@@ -304,8 +313,11 @@ namespace Analyzer.Utilities.Extensions
         public static bool IsNullableOfBoolean([NotNullWhen(returnValue: true)] this ITypeSymbol? typeSymbol)
             => typeSymbol.IsNullableValueType() && ((INamedTypeSymbol)typeSymbol).TypeArguments[0].SpecialType == SpecialType.System_Boolean;
 
+        public static ITypeSymbol? GetNullableValueTypeUnderlyingType(this ITypeSymbol? typeSymbol)
+            => typeSymbol.IsNullableValueType() ? ((INamedTypeSymbol)typeSymbol).TypeArguments[0] : null;
+
 #if HAS_IOPERATION
-        public static ITypeSymbol GetUnderlyingValueTupleTypeOrThis(this ITypeSymbol typeSymbol)
+        public static ITypeSymbol? GetUnderlyingValueTupleTypeOrThis(this ITypeSymbol? typeSymbol)
             => (typeSymbol as INamedTypeSymbol)?.TupleUnderlyingType ?? typeSymbol;
 #endif
 
@@ -372,9 +384,9 @@ namespace Analyzer.Utilities.Extensions
                 RoslynDebug.Assert(iReadOnlyCollectionOfT != null);
 
                 return type.OriginalDefinition is INamedTypeSymbol originalDefinition &&
-                    (iCollection.Equals(originalDefinition) ||
-                     iCollectionOfT.Equals(originalDefinition) ||
-                     iReadOnlyCollectionOfT.Equals(originalDefinition));
+                    (SymbolEqualityComparer.Default.Equals(iCollection, originalDefinition) ||
+                     SymbolEqualityComparer.Default.Equals(iCollectionOfT, originalDefinition) ||
+                     SymbolEqualityComparer.Default.Equals(iReadOnlyCollectionOfT, originalDefinition));
             }
         }
     }

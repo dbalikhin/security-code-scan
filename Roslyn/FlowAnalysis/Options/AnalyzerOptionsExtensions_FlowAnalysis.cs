@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis;
 
 namespace Analyzer.Utilities
 {
-    internal static partial class AnalyzerOptionsExtensions
+    public static partial class AnalyzerOptionsExtensions
     {
         public static InterproceduralAnalysisKind GetInterproceduralAnalysisKindOption(
             this AnalyzerOptions options,
@@ -18,7 +18,7 @@ namespace Analyzer.Utilities
             InterproceduralAnalysisKind defaultValue,
             CancellationToken cancellationToken)
         => TryGetSyntaxTreeForOption(symbol, out var tree)
-            ? options.GetInterproceduralAnalysisKindOption(rule, tree, compilation, defaultValue, cancellationToken)
+            ? options.GetInterproceduralAnalysisKindOption(rule, tree, compilation, defaultValue)
             : defaultValue;
 
         public static InterproceduralAnalysisKind GetInterproceduralAnalysisKindOption(
@@ -26,19 +26,17 @@ namespace Analyzer.Utilities
             DiagnosticDescriptor rule,
             SyntaxTree tree,
             Compilation compilation,
-            InterproceduralAnalysisKind defaultValue,
-            CancellationToken cancellationToken)
-            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.InterproceduralAnalysisKind, rule, tree, compilation, defaultValue, cancellationToken);
+            InterproceduralAnalysisKind defaultValue)
+            => options.GetNonFlagsEnumOptionValue(optionName: EditorConfigOptionNames.InterproceduralAnalysisKind, rule: rule, tree: tree, compilation: compilation, defaultValue: defaultValue);
 
         public static DisposeAnalysisKind GetDisposeAnalysisKindOption(
             this AnalyzerOptions options,
             DiagnosticDescriptor rule,
             ISymbol symbol,
             Compilation compilation,
-            DisposeAnalysisKind defaultValue,
-            CancellationToken cancellationToken)
+            DisposeAnalysisKind defaultValue)
         => TryGetSyntaxTreeForOption(symbol, out var tree)
-            ? options.GetDisposeAnalysisKindOption(rule, tree, compilation, defaultValue, cancellationToken)
+            ? options.GetDisposeAnalysisKindOption(rule, tree, compilation, defaultValue)
             : defaultValue;
 
         public static DisposeAnalysisKind GetDisposeAnalysisKindOption(
@@ -46,9 +44,8 @@ namespace Analyzer.Utilities
             DiagnosticDescriptor rule,
             SyntaxTree tree,
             Compilation compilation,
-            DisposeAnalysisKind defaultValue,
-            CancellationToken cancellationToken)
-            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.DisposeAnalysisKind, rule, tree, compilation, defaultValue, cancellationToken);
+            DisposeAnalysisKind defaultValue)
+            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.DisposeAnalysisKind, rule, tree, compilation, defaultValue);
 
         public static bool GetDisposeOwnershipTransferAtConstructorOption(
             this AnalyzerOptions options,
@@ -128,6 +125,6 @@ namespace Analyzer.Utilities
             Compilation compilation,
             PointsToAnalysisKind defaultValue,
             CancellationToken cancellationToken)
-            => options.GetNonFlagsEnumOptionValue(EditorConfigOptionNames.PointsToAnalysisKind, rule, tree, compilation, defaultValue, cancellationToken);
+            => options.GetNonFlagsEnumOptionValue(optionName: EditorConfigOptionNames.PointsToAnalysisKind, rule, tree, compilation, defaultValue);
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -46,7 +46,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.PropertySetAnalysis
 
         private ImmutableDictionary<(HazardousUsageEvaluatorKind Kind, string? InstanceTypeName, string? MethodName, string? ParameterName, bool DerivedClasses), HazardousUsageEvaluator> HazardousUsageEvaluators { get; }
 
-        internal bool TryGetHazardousUsageEvaluator(string trackedTypeMethodName, out HazardousUsageEvaluator hazardousUsageEvaluator, bool derivedClasses = false)
+        internal bool TryGetHazardousUsageEvaluator(string trackedTypeMethodName, out HazardousUsageEvaluator? hazardousUsageEvaluator, bool derivedClasses = false)
         {
             return this.HazardousUsageEvaluators.TryGetValue(
                 (HazardousUsageEvaluatorKind.Invocation, null, trackedTypeMethodName, null, derivedClasses),
@@ -57,7 +57,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.PropertySetAnalysis
             string containingType,
             string methodName,
             string parameterName,
-            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator hazardousUsageEvaluator)
+            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator? hazardousUsageEvaluator)
         {
             if (this.HazardousUsageEvaluators.TryGetValue(
                     (HazardousUsageEvaluatorKind.Invocation, containingType, methodName, parameterName, false),
@@ -73,7 +73,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.PropertySetAnalysis
         }
 
         internal bool TryGetReturnHazardousUsageEvaluator(
-            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator hazardousUsageEvaluator,
+            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator? hazardousUsageEvaluator,
             bool derivedClass = false)
         {
             return this.HazardousUsageEvaluators.TryGetValue(
@@ -82,7 +82,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.PropertySetAnalysis
         }
 
         internal bool TryGetInitializationHazardousUsageEvaluator(
-            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator hazardousUsageEvaluator,
+            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator? hazardousUsageEvaluator,
             bool derivedClass = false)
         {
             return this.HazardousUsageEvaluators.TryGetValue(
@@ -91,7 +91,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.PropertySetAnalysis
         }
 
         internal bool TryGetArgumentHazardousUsageEvaluator(
-            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator hazardousUsageEvaluator,
+            [NotNullWhen(returnValue: true)] out HazardousUsageEvaluator? hazardousUsageEvaluator,
             bool derivedClass = false)
         {
             return this.HazardousUsageEvaluators.TryGetValue(

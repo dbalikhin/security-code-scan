@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 
@@ -22,7 +22,7 @@ namespace Analyzer.Utilities.PooledObjects
                 _index = -1;
             }
 
-            public T Current => _builder[_index];
+            public readonly T Current => _builder[_index];
 
             public bool MoveNext()
             {
@@ -30,11 +30,11 @@ namespace Analyzer.Utilities.PooledObjects
                 return _index < _builder.Count;
             }
 
-            public void Dispose()
+            public readonly void Dispose()
             {
             }
 
-            object? System.Collections.IEnumerator.Current => this.Current;
+            readonly object? System.Collections.IEnumerator.Current => this.Current;
 
             public void Reset()
             {

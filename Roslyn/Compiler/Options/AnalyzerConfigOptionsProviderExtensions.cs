@@ -1,6 +1,5 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
-#if CODEANALYSIS_V3_OR_BETTER
 
 using System.Collections.Immutable;
 using System.Reflection;
@@ -8,7 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Analyzer.Utilities
 {
-    internal static class AnalyzerConfigOptionsProviderExtensions
+    public static class AnalyzerConfigOptionsProviderExtensions
     {
         public static bool IsEmpty(this AnalyzerConfigOptionsProvider analyzerConfigOptionsProvider)
         {
@@ -21,4 +20,3 @@ namespace Analyzer.Utilities
     }
 }
 
-#endif
