@@ -484,9 +484,9 @@ namespace SecurityCodeScan.Analyzers.Taint
                                                         sourceInfoSymbolMap,
                                                         config.TaintConfiguration.GetSanitizerSymbolMap(this.SinkKind),
                                                         sinkInfoSymbolMap,
-                                                        //config.MaxInterproceduralMethodCallChain,
-                                                        //config.MaxInterproceduralLambdaOrLocalFunctionCallChain,
-                                                        operationBlockAnalysisContext.CancellationToken);
+                                                        operationBlockAnalysisContext.CancellationToken,
+                                                        config.MaxInterproceduralMethodCallChain,
+                                                        config.MaxInterproceduralLambdaOrLocalFunctionCallChain);
                                                     if (taintedDataAnalysisResult == null)
                                                     {
                                                         return;

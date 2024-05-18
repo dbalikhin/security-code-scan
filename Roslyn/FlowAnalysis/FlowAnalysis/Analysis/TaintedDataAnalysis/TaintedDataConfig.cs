@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -36,12 +36,6 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         /// </summary>
         private static ImmutableDictionary<SinkKind, ImmutableHashSet<SanitizerInfo>> s_sinkKindToSanitizerInfo
             = ImmutableDictionary.Create<SinkKind, ImmutableHashSet<SanitizerInfo>>();
-
-        /// <summary>
-        /// Caches the results for <see cref="HasTaintArraySource(SinkKind)"/>.
-        /// </summary>
-        private static ImmutableDictionary<SinkKind, bool> s_sinkKindHasTaintArraySource
-            = ImmutableDictionary.Create<SinkKind, bool>();
 
         /// <summary>
         /// <see cref="WellKnownTypeProvider"/> for this instance's <see cref="Compilation"/>.
@@ -180,16 +174,13 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 
         public static bool HasTaintArraySource(SinkKind sinkKind)
         {
-            return ImmutableInterlocked.GetOrAdd(
-                ref s_sinkKindHasTaintArraySource,
-                sinkKind,
-                static sinkKind => GetSourceInfos(sinkKind).Any(static o => o.TaintConstantArray));
+            return GetSourceInfos(sinkKind).Any(o => o.TaintConstantArray);
         }
 
         private TaintedDataSymbolMap<T> GetFromMap<T>(SinkKind sinkKind, ImmutableDictionary<SinkKind, Lazy<TaintedDataSymbolMap<T>>> map)
             where T : ITaintedDataInfo
         {
-            if (map.TryGetValue(sinkKind, out var lazySourceSymbolMap))
+            if (map.TryGetValue(sinkKind, out Lazy<TaintedDataSymbolMap<T>> lazySourceSymbolMap))
             {
                 return lazySourceSymbolMap.Value;
             }

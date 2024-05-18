@@ -1,5 +1,6 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.FlowAnalysis;
@@ -8,7 +9,6 @@ using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.CopyAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis;
 using System.Diagnostics;
-using System.Threading;
 
 namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 {
@@ -33,12 +33,14 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             TaintedDataSymbolMap<SourceInfo> taintedSourceInfos,
             TaintedDataSymbolMap<SanitizerInfo> taintedSanitizerInfos,
             TaintedDataSymbolMap<SinkInfo> taintedSinkInfos,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            uint defaultMaxInterproceduralMethodCallChain,
+            uint defaultMaxInterproceduralLambdaOrLocalFunctionCallChain)
         {
             var interproceduralAnalysisConfig = InterproceduralAnalysisConfiguration.Create(
-                analyzerOptions, rule, cfg, compilation, InterproceduralAnalysisKind.ContextSensitive, cancellationToken);
+                analyzerOptions, rule, cfg, compilation, InterproceduralAnalysisKind.ContextSensitive, cancellationToken, defaultMaxInterproceduralMethodCallChain, defaultMaxInterproceduralLambdaOrLocalFunctionCallChain);
             return TryGetOrComputeResult(cfg, compilation, containingMethod, analyzerOptions, taintedSourceInfos,
-                taintedSanitizerInfos, taintedSinkInfos, interproceduralAnalysisConfig, cancellationToken);
+                taintedSanitizerInfos, taintedSinkInfos, interproceduralAnalysisConfig);
         }
 
         private static TaintedDataAnalysisResult? TryGetOrComputeResult(
@@ -49,8 +51,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             TaintedDataSymbolMap<SourceInfo> taintedSourceInfos,
             TaintedDataSymbolMap<SanitizerInfo> taintedSanitizerInfos,
             TaintedDataSymbolMap<SinkInfo> taintedSinkInfos,
-            InterproceduralAnalysisConfiguration interproceduralAnalysisConfig,
-            CancellationToken cancellationToken)
+            InterproceduralAnalysisConfiguration interproceduralAnalysisConfig)
         {
             if (cfg == null)
             {
@@ -99,7 +100,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             }
 
             TaintedDataAnalysisContext analysisContext = TaintedDataAnalysisContext.Create(
-                ValueDomainInstance,
+                TaintedDataAbstractValueDomain.Default,
                 wellKnownTypeProvider,
                 cfg,
                 containingMethod,

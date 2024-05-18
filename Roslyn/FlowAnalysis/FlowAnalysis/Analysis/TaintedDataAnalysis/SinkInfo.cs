@@ -83,12 +83,12 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
         public override int GetHashCode()
         {
             var hashCode = new RoslynHashCode();
-            HashUtilities.Combine(this.SinkProperties, ref hashCode);
-            HashUtilities.Combine(this.SinkMethodParameters, ref hashCode);
             hashCode.Add(StringComparer.Ordinal.GetHashCode(this.FullTypeName));
             HashUtilities.Combine(this.SinkKinds, ref hashCode);
             hashCode.Add(this.IsInterface.GetHashCode());
             hashCode.Add(this.IsAnyStringParameterInConstructorASink.GetHashCode());
+            HashUtilities.Combine(this.SinkProperties, ref hashCode);
+            HashUtilities.Combine(this.SinkMethodParameters, ref hashCode);
             HashUtilities.Combine(this.SinkMethodMatchingParameters, ref hashCode);
             return hashCode.ToHashCode();
         }
@@ -106,8 +106,8 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
                 && this.IsInterface == other.IsInterface
                 && this.IsAnyStringParameterInConstructorASink == other.IsAnyStringParameterInConstructorASink
                 && this.SinkProperties == other.SinkProperties
-                && this.SinkMethodMatchingParameters == other.SinkMethodMatchingParameters
-                && this.SinkMethodParameters == other.SinkMethodParameters;
+                && this.SinkMethodParameters == other.SinkMethodParameters
+                && this.SinkMethodMatchingParameters == other.SinkMethodMatchingParameters;
         }
     }
 }
