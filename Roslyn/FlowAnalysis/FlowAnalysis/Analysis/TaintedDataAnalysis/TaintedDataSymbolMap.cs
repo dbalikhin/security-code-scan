@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -127,14 +127,14 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             if (!this.InterfaceInfos.IsEmpty)
             {
                 if (namedTypeSymbol.TypeKind == TypeKind.Interface
-                    && this.InterfaceInfos.TryGetValue(namedTypeSymbol.OriginalDefinition, out TInfo infoForInterfaceSymbol))
+                    && this.InterfaceInfos.TryGetValue(namedTypeSymbol.OriginalDefinition, out var infoForInterfaceSymbol))
                 {
                     yield return infoForInterfaceSymbol;
                 }
 
                 foreach (INamedTypeSymbol interfaceSymbol in namedTypeSymbol.AllInterfaces)
                 {
-                    if (this.InterfaceInfos.TryGetValue(interfaceSymbol.OriginalDefinition, out TInfo info))
+                    if (this.InterfaceInfos.TryGetValue(interfaceSymbol.OriginalDefinition, out var info))
                     {
                         yield return info;
                     }
@@ -145,7 +145,7 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
             {
                 foreach (INamedTypeSymbol typeSymbol in namedTypeSymbol.GetBaseTypesAndThis())
                 {
-                    if (this.ConcreteInfos.TryGetValue(typeSymbol.OriginalDefinition, out TInfo info))
+                    if (this.ConcreteInfos.TryGetValue(typeSymbol.OriginalDefinition, out var info))
                     {
                         yield return info;
                     }
