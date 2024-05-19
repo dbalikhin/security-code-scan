@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -197,7 +197,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
             var isNestedLambdaOrLocalFunction = lambdaOrLocalFunctionOperation.IsWithinLambdaOrLocalFunction(out _);
 
-            foreach (DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue> result in _interproceduralResultsMap.Values)
+            foreach (DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue> result in _interproceduralResultsMap.Values.Cast<DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue>>())
             {
                 if (result.ControlFlowGraph.OriginalOperation == lambdaOrLocalFunctionOperation)
                 {
@@ -214,7 +214,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow
 
             if (lambdaOrLocalFunctionOperation.Kind == OperationKind.LocalFunction)
             {
-                foreach (DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue> result in _standaloneLocalFunctionAnalysisResultsMap.Values)
+                foreach (DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue> result in _standaloneLocalFunctionAnalysisResultsMap.Values.Cast<DataFlowAnalysisResult<TBlockAnalysisResult, TAbstractAnalysisValue>>())
                 {
                     if (result.ControlFlowGraph.OriginalOperation == lambdaOrLocalFunctionOperation)
                     {

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 
@@ -42,6 +42,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ValueContentAnalysis
         {
         }
 
+        protected override AbstractValueDomain<ValueContentAbstractValue> ValueDomain => ValueContentAnalysis.ValueDomainInstance;
         public override AnalysisEntityBasedPredicateAnalysisData<ValueContentAbstractValue> Clone() => new ValueContentAnalysisData(this);
 
         public override int Compare(AnalysisEntityBasedPredicateAnalysisData<ValueContentAbstractValue> other, MapAbstractDomain<AnalysisEntity, ValueContentAbstractValue> coreDataAnalysisDomain)

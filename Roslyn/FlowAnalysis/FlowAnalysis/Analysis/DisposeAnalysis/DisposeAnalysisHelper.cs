@@ -1,5 +1,6 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -42,8 +43,12 @@ namespace Analyzer.Utilities
         private ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<IFieldSymbol>>? _lazyDisposableFieldsMap;
         public INamedTypeSymbol? IDisposable { get; }
         public INamedTypeSymbol? IAsyncDisposable { get; }
+        public INamedTypeSymbol? ConfiguredAsyncDisposable { get; }
         public INamedTypeSymbol? Task { get; }
         public INamedTypeSymbol? ValueTask { get; }
+        public INamedTypeSymbol? ConfiguredValueTaskAwaitable { get; }
+        public INamedTypeSymbol? StringReader { get; }
+        public INamedTypeSymbol? MemoryStream { get; }
 
         private DisposeAnalysisHelper(Compilation compilation)
         {
@@ -51,8 +56,12 @@ namespace Analyzer.Utilities
 
             IDisposable = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIDisposable);
             IAsyncDisposable = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIAsyncDisposable);
+            ConfiguredAsyncDisposable = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemRuntimeCompilerServicesConfiguredAsyncDisposable);
             Task = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksTask);
             ValueTask = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemThreadingTasksValueTask);
+            ConfiguredValueTaskAwaitable = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemRuntimeCompilerServicesConfiguredValueTaskAwaitable);
+            StringReader = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIOStringReader);
+            MemoryStream = _wellKnownTypeProvider.GetOrCreateTypeByMetadataName(WellKnownTypeNames.SystemIOMemoryStream);
 
             _disposeOwnershipTransferLikelyTypes = IDisposable != null ?
                 GetDisposeOwnershipTransferLikelyTypes(compilation) :
@@ -98,6 +107,16 @@ namespace Analyzer.Utilities
                 => new(compilation);
         }
 
+        public static Func<ITypeSymbol?, bool> GetIsDisposableDelegate(Compilation compilation)
+        {
+            if (TryGetOrCreate(compilation, out var disposeAnalysisHelper))
+            {
+                return disposeAnalysisHelper.IsDisposable;
+            }
+
+            return _ => false;
+        }
+
         public bool TryGetOrComputeResult(
             ImmutableArray<IOperation> operationBlocks,
             IMethodSymbol containingMethod,
@@ -138,7 +157,7 @@ namespace Analyzer.Utilities
 
         private bool IsDisposableCreation(IOperation operation)
             => (s_DisposableCreationKinds.Contains(operation.Kind) ||
-                operation.Parent is IArgumentOperation argument && argument.Parameter.RefKind == RefKind.Out) &&
+                operation.Parent is IArgumentOperation argument && argument.Parameter?.RefKind == RefKind.Out) &&
                IsDisposable(operation.Type);
 
         public bool HasAnyDisposableCreationDescendant(ImmutableArray<IOperation> operationBlocks, IMethodSymbol containingMethod)
@@ -146,6 +165,16 @@ namespace Analyzer.Utilities
             return operationBlocks.HasAnyOperationDescendant(IsDisposableCreation) ||
                 HasDisposableOwnershipTransferForConstructorParameter(containingMethod);
         }
+
+        public bool IsDisposableTypeNotRequiringToBeDisposed(ITypeSymbol typeSymbol) =>
+            // Common case doesn't require dispose. https://learn.microsoft.com/dotnet/api/system.threading.tasks.task.dispose
+            typeSymbol.DerivesFrom(Task, baseTypesOnly: true) ||
+            // StringReader doesn't need to be disposed: https://learn.microsoft.com/dotnet/api/system.io.stringreader
+            SymbolEqualityComparer.Default.Equals(typeSymbol, StringReader) ||
+            // MemoryStream doesn't need to be disposed. https://learn.microsoft.com/dotnet/api/system.io.memorystream
+            // Subclasses *might* need to be disposed, but that is the less common case,
+            // and the common case is a huge source of noisy warnings.
+            SymbolEqualityComparer.Default.Equals(typeSymbol, MemoryStream);
 
         public ImmutableHashSet<IFieldSymbol> GetDisposableFields(INamedTypeSymbol namedType)
         {
@@ -157,7 +186,7 @@ namespace Analyzer.Utilities
                 return disposableFields;
             }
 
-            if (!namedType.IsDisposable(IDisposable, IAsyncDisposable))
+            if (!namedType.IsDisposable(IDisposable, IAsyncDisposable, ConfiguredAsyncDisposable))
             {
                 disposableFields = ImmutableHashSet<IFieldSymbol>.Empty;
             }
@@ -165,7 +194,7 @@ namespace Analyzer.Utilities
             {
                 disposableFields = namedType.GetMembers()
                     .OfType<IFieldSymbol>()
-                    .Where(f => IsDisposable(f.Type) && !f.Type.DerivesFrom(Task))
+                    .Where(f => IsDisposable(f.Type) && !IsDisposableTypeNotRequiringToBeDisposed(f.Type))
                     .ToImmutableHashSet();
             }
 
@@ -188,9 +217,9 @@ namespace Analyzer.Utilities
         }
 
         public bool IsDisposable([NotNullWhen(returnValue: true)] ITypeSymbol? type)
-            => type != null && type.IsDisposable(IDisposable, IAsyncDisposable);
+            => type != null && type.IsDisposable(IDisposable, IAsyncDisposable, ConfiguredAsyncDisposable);
 
         public DisposeMethodKind GetDisposeMethodKind(IMethodSymbol method)
-            => method.GetDisposeMethodKind(IDisposable, IAsyncDisposable, Task, ValueTask);
+            => method.GetDisposeMethodKind(IDisposable, IAsyncDisposable, ConfiguredAsyncDisposable, Task, ValueTask, ConfiguredValueTaskAwaitable);
     }
 }

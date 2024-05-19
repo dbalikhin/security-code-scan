@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -86,6 +86,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis
                 {
                     return NullLocation;
                 }
+
                 if (location.IsNoLocation)
                 {
                     return NoLocation;
@@ -184,8 +185,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis
         {
             hashCode.Add(HashUtilities.Combine(Locations));
             hashCode.Add(HashUtilities.Combine(LValueCapturedOperations));
-            hashCode.Add(Kind.GetHashCode());
-            hashCode.Add(NullState.GetHashCode());
+            hashCode.Add(((int)Kind).GetHashCode());
+            hashCode.Add(((int)NullState).GetHashCode());
         }
 
         protected override bool ComputeEqualsByHashCodeParts(CacheBasedEquatable<PointsToAbstractValue> obj)
@@ -193,8 +194,8 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.PointsToAnalysis
             var other = (PointsToAbstractValue)obj;
             return HashUtilities.Combine(Locations) == HashUtilities.Combine(other.Locations)
                 && HashUtilities.Combine(LValueCapturedOperations) == HashUtilities.Combine(other.LValueCapturedOperations)
-                && Kind.GetHashCode() == other.Kind.GetHashCode()
-                && NullState.GetHashCode() == other.NullState.GetHashCode();
+                && ((int)Kind).GetHashCode() == ((int)other.Kind).GetHashCode()
+                && ((int)NullState).GetHashCode() == ((int)other.NullState).GetHashCode();
         }
     }
 }

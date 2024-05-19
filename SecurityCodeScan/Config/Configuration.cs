@@ -390,7 +390,7 @@ namespace SecurityCodeScan.Config
                         }
 
                         if (type.Value.entryPoint.Parameter?.Attributes?.Exclude != null &&
-                            type.Value.entryPoint.Parameter.Attributes.Exclude.Any(x => parameter.HasAttribute(wellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Type))))
+                            type.Value.entryPoint.Parameter.Attributes.Exclude.Any(x => parameter.HasAnyAttribute(wellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Type))))
                         {
                             return false;
                         }

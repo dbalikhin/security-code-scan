@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using Analyzer.Utilities.Extensions;
 
@@ -7,7 +7,7 @@ namespace Analyzer.Utilities
     /// <summary>
     /// Describes a group of effective <see cref="SymbolVisibility"/> for symbols.
     /// </summary>
-    internal enum DisposeAnalysisKind
+    public enum DisposeAnalysisKind
     {
         // NOTE: Below fields names are used in the .editorconfig specification
         //       for DisposeAnalysisKind option. Hence the names should *not* be modified,

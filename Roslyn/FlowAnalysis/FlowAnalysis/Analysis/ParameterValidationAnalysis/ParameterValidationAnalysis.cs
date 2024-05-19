@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -49,7 +49,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis.DataFlow.ParameterValidationAnalys
             var interproceduralAnalysisConfig = InterproceduralAnalysisConfiguration.Create(
                    analyzerOptions, rule, cfg, compilation, interproceduralAnalysisKind, cancellationToken, defaultMaxInterproceduralMethodCallChain);
             var performCopyAnalysis = analyzerOptions.GetCopyAnalysisOption(rule, topmostBlock.Syntax.SyntaxTree, compilation, defaultValue: false, cancellationToken);
-            var nullCheckValidationMethods = analyzerOptions.GetNullCheckValidationMethodsOption(rule, topmostBlock.Syntax.SyntaxTree, compilation, cancellationToken);
+            var nullCheckValidationMethods = analyzerOptions.GetNullCheckValidationMethodsOption(rule, topmostBlock.Syntax.SyntaxTree, compilation); // cancellationToken
             var pointsToAnalysisKind = analyzerOptions.GetPointsToAnalysisKindOption(rule, topmostBlock.Syntax.SyntaxTree, compilation, defaultPointsToAnalysisKind, cancellationToken);
             return GetOrComputeHazardousParameterUsages(cfg, compilation, owningSymbol, analyzerOptions,
                 nullCheckValidationMethods, pointsToAnalysisKind, interproceduralAnalysisConfig, performCopyAnalysis, pessimisticAnalysis);

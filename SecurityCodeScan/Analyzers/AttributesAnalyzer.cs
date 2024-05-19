@@ -295,12 +295,12 @@ namespace SecurityCodeScan.Analyzers
             foreach (var parameter in methodSymbol.Parameters)
             {
                 if (group.Parameter.Exclude != null &&
-                    group.Parameter.Exclude.Any(x => parameter.HasAttribute(WellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Key))))
+                    group.Parameter.Exclude.Any(x => parameter.HasAnyAttribute(WellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Key))))
                 {
                     return true;
                 }
                 else if (group.Parameter.Include != null &&
-                         group.Parameter.Include.Any(x => parameter.HasAttribute(WellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Key))))
+                         group.Parameter.Include.Any(x => parameter.HasAnyAttribute(WellKnownTypeProvider.GetOrCreateTypeByMetadataName(x.Key))))
                 {
                     return false;
                 }

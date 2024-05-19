@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 // NOTE: This code is derived from an implementation originally in dotnet/runtime:
 // https://github.com/dotnet/runtime/blob/v5.0.3/src/libraries/System.Private.CoreLib/src/System/HashCode.cs
@@ -372,7 +372,7 @@ namespace Analyzer.Utilities
             }
         }
 
-        public int ToHashCode()
+        public readonly int ToHashCode()
         {
             // Storing the value of _length locally shaves of quite a few bytes
             // in the resulting machine code.
@@ -430,11 +430,11 @@ namespace Analyzer.Utilities
 
         [Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", error: true)]
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override int GetHashCode() => throw new NotSupportedException(SR.HashCode_HashCodeNotSupported);
+        public override readonly int GetHashCode() => throw new NotSupportedException(SR.HashCode_HashCodeNotSupported);
 
         [Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes.", error: true)]
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override bool Equals(object? obj) => throw new NotSupportedException(SR.HashCode_EqualityNotSupported);
+        public override readonly bool Equals(object? obj) => throw new NotSupportedException(SR.HashCode_EqualityNotSupported);
 #pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
 #pragma warning restore CS0809 // Obsolete member overrides non-obsolete member
 

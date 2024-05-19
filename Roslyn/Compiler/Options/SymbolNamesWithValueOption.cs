@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Concurrent;
@@ -13,7 +13,12 @@ using Microsoft.CodeAnalysis;
 
 namespace Analyzer.Utilities
 {
-    internal sealed class SymbolNamesWithValueOption<TValue> : IEquatable<SymbolNamesWithValueOption<TValue>?>
+#if !TEST_UTILITIES
+    public sealed class SymbolNamesWithValueOption<TValue>
+#else
+    internal sealed class SymbolNamesWithValueOption<TValue>
+#endif
+     : IEquatable<SymbolNamesWithValueOption<TValue>?>
     {
         internal const SymbolKind AllKinds = SymbolKind.ErrorType;
         internal const char WildcardChar = '*';
@@ -107,6 +112,7 @@ namespace Analyzer.Utilities
                 {
                     ProcessWildcardName(parts, wildcardNamesBuilder);
                 }
+#pragma warning disable CA1847 // Use 'string.Contains(char)' instead of 'string.Contains(string)' when searching for a single character
                 else if (parts.SymbolName.Equals(".ctor", StringComparison.Ordinal) ||
                     parts.SymbolName.Equals(".cctor", StringComparison.Ordinal) ||
                     !parts.SymbolName.Contains(".", StringComparison.Ordinal) && !parts.SymbolName.Contains(":", StringComparison.Ordinal))
@@ -117,6 +123,7 @@ namespace Analyzer.Utilities
                 {
                     ProcessSymbolName(parts, compilation, optionalPrefix, symbolsBuilder);
                 }
+#pragma warning restore CA1847 // Use 'string.Contains(char)' instead of 'string.Contains(string)' when searching for a single character
             }
 
             if (namesBuilder.Count == 0 && symbolsBuilder.Count == 0 && wildcardNamesBuilder.Count == 0)
@@ -136,11 +143,13 @@ namespace Analyzer.Utilities
 
                 if (parts.SymbolName[1] != ':')
                 {
-                    if (!wildcardNamesBuilder.ContainsKey(AllKinds))
+                    if (!wildcardNamesBuilder.TryGetValue(AllKinds, out var associatedValues))
                     {
-                        wildcardNamesBuilder.Add(AllKinds, PooledDictionary<string, TValue>.GetInstance());
+                        associatedValues = PooledDictionary<string, TValue>.GetInstance();
+                        wildcardNamesBuilder.Add(AllKinds, associatedValues);
                     }
-                    wildcardNamesBuilder[AllKinds].Add(parts.SymbolName[0..^1], parts.AssociatedValue);
+
+                    associatedValues.Add(parts.SymbolName[0..^1], parts.AssociatedValue);
                     return;
                 }
 
@@ -157,11 +166,13 @@ namespace Analyzer.Utilities
 
                 if (symbolKind != null)
                 {
-                    if (!wildcardNamesBuilder.ContainsKey(symbolKind.Value))
+                    if (!wildcardNamesBuilder.TryGetValue(symbolKind.Value, out var associatedValues))
                     {
-                        wildcardNamesBuilder.Add(symbolKind.Value, PooledDictionary<string, TValue>.GetInstance());
+                        associatedValues = PooledDictionary<string, TValue>.GetInstance();
+                        wildcardNamesBuilder.Add(symbolKind.Value, associatedValues);
                     }
-                    wildcardNamesBuilder[symbolKind.Value].Add(parts.SymbolName[2..^1], parts.AssociatedValue);
+
+                    associatedValues.Add(parts.SymbolName[2..^1], parts.AssociatedValue);
                 }
             }
 
@@ -290,23 +301,21 @@ namespace Analyzer.Utilities
 #pragma warning restore CS8762 // Parameter 'firstMatchValue' must have a non-null value when exiting with 'true'
             }
 
-            var symbolDeclarationId = _symbolToDeclarationId.GetOrAdd(symbol, s => GetDeclarationId(s));
+            var symbolDeclarationId = _symbolToDeclarationId.GetOrAdd(symbol, GetDeclarationId);
 
             // We start by trying to match with the most precise definition (prefix)...
-            if (_wildcardNamesBySymbolKind.TryGetValue(symbol.Kind, out var names))
+            if (_wildcardNamesBySymbolKind.TryGetValue(symbol.Kind, out var names) &&
+                names.FirstOrDefault(kvp => symbolDeclarationId.StartsWith(kvp.Key, StringComparison.Ordinal)) is var prefixedFirstMatchOrDefault &&
+                !string.IsNullOrWhiteSpace(prefixedFirstMatchOrDefault.Key))
             {
-                if (names.FirstOrDefault(kvp => symbolDeclarationId.StartsWith(kvp.Key, StringComparison.Ordinal)) is var prefixedFirstMatchOrDefault &&
-                    !string.IsNullOrWhiteSpace(prefixedFirstMatchOrDefault.Key))
-                {
-                    (firstMatchName, firstMatchValue) = prefixedFirstMatchOrDefault;
-                    _wildcardMatchResult.AddOrUpdate(symbol, prefixedFirstMatchOrDefault.AsNullable(), (s, match) => prefixedFirstMatchOrDefault.AsNullable());
-                    return true;
-                }
+                (firstMatchName, firstMatchValue) = prefixedFirstMatchOrDefault;
+                _wildcardMatchResult.AddOrUpdate(symbol, prefixedFirstMatchOrDefault.AsNullable(), (s, match) => prefixedFirstMatchOrDefault.AsNullable());
+                return true;
             }
 
             // If not found, then we try to match with the symbol full declaration ID...
-            if (_wildcardNamesBySymbolKind.ContainsKey(AllKinds) &&
-                _wildcardNamesBySymbolKind[AllKinds].FirstOrDefault(kvp => symbolDeclarationId.StartsWith(kvp.Key, StringComparison.Ordinal)) is var unprefixedFirstMatchOrDefault &&
+            if (_wildcardNamesBySymbolKind.TryGetValue(AllKinds, out var value) &&
+                value.FirstOrDefault(kvp => symbolDeclarationId.StartsWith(kvp.Key, StringComparison.Ordinal)) is var unprefixedFirstMatchOrDefault &&
                 !string.IsNullOrWhiteSpace(unprefixedFirstMatchOrDefault.Key))
             {
                 (firstMatchName, firstMatchValue) = unprefixedFirstMatchOrDefault;
@@ -315,8 +324,8 @@ namespace Analyzer.Utilities
             }
 
             // If not found, then we try to match with the symbol name...
-            if (_wildcardNamesBySymbolKind.ContainsKey(AllKinds) &&
-                _wildcardNamesBySymbolKind[AllKinds].FirstOrDefault(kvp => symbol.Name.StartsWith(kvp.Key, StringComparison.Ordinal)) is var partialFirstMatchOrDefault &&
+            if (_wildcardNamesBySymbolKind.TryGetValue(AllKinds, out var allKindsValue) &&
+                allKindsValue.FirstOrDefault(kvp => symbol.Name.StartsWith(kvp.Key, StringComparison.Ordinal)) is var partialFirstMatchOrDefault &&
                 !string.IsNullOrWhiteSpace(partialFirstMatchOrDefault.Key))
             {
                 (firstMatchName, firstMatchValue) = partialFirstMatchOrDefault;
@@ -377,7 +386,9 @@ namespace Analyzer.Utilities
         /// On the rule CA1710, we allow user specific suffix to be registered for symbol names using the following format:
         /// MyClass->Suffix or T:MyNamespace.MyClass->Suffix or N:MyNamespace->Suffix.
         /// </example>
+#pragma warning disable CA1034 // Nested types should not be visible
         public sealed class NameParts
+#pragma warning restore CA1034 // Nested types should not be visible
         {
             public NameParts(string symbolName, TValue associatedValue)
             {

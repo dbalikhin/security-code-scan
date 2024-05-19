@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -148,7 +148,14 @@ namespace Analyzer.Utilities.FlowAnalysis.Analysis.TaintedDataAnalysis
 
             protected override void SetAbstractValue(AnalysisEntity analysisEntity, TaintedDataAbstractValue value)
             {
-                SetAbstractValueCore(CurrentAnalysisData, analysisEntity, value);
+                SetAbstractValueCore(CurrentAnalysisData, analysisEntity, value); //!mergereview TaintAnalyzerTest.ExtensionMethodWitParams
+                //if (value.Kind == TaintedDataAbstractValueKind.Tainted                
+                //    || this.CurrentAnalysisData.CoreAnalysisData.ContainsKey(analysisEntity))
+                //{
+                //    // Only track tainted data, or sanitized data.
+                //    // If it's new, and it's untainted, we don't care.
+                //    SetAbstractValueCore(CurrentAnalysisData, analysisEntity, value);
+                //}
             }
 
             private static void SetAbstractValueCore(TaintedDataAnalysisData taintedAnalysisData, AnalysisEntity analysisEntity, TaintedDataAbstractValue value)

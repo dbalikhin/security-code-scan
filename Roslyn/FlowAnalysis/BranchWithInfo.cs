@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the MIT license.  See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis
         private static readonly Func<ControlFlowRegion, IEnumerable<ControlFlowRegion>> s_getTransitiveNestedRegions = GetTransitiveNestedRegions;
 
         internal BranchWithInfo(ControlFlowBranch branch)
-            : this(branch.Destination, branch.EnteringRegions, branch.LeavingRegions, branch.FinallyRegions,
+            : this(branch.Destination!, branch.EnteringRegions, branch.LeavingRegions, branch.FinallyRegions,
                   branch.Semantics, branch.Source.BranchValue,
                   GetControlFlowConditionKind(branch),
                   leavingRegionLocals: ComputeLeavingRegionLocals(branch.LeavingRegions),
@@ -65,9 +65,7 @@ namespace Microsoft.CodeAnalysis.FlowAnalysis
         public ImmutableArray<ControlFlowRegion> LeavingRegions { get; }
         public IOperation? BranchValue { get; }
 
-#pragma warning disable CA1721 // Property names should not match get methods - https://github.com/dotnet/roslyn-analyzers/issues/2085
         public ControlFlowConditionKind ControlFlowConditionKind { get; }
-#pragma warning restore CA1721 // Property names should not match get methods
 
         public IEnumerable<ILocalSymbol> LeavingRegionLocals { get; }
         public IEnumerable<CaptureId> LeavingRegionFlowCaptures { get; }
