@@ -362,6 +362,11 @@ namespace SecurityCodeScan.Tool
                     }
 
                     LogError(kind == WorkspaceDiagnosticKind.Failure, e.Diagnostic.Message);
+                    // ignore vulnerable packages MsBuild failures, just show the error message in all cases
+                    if (e.Diagnostic.Message.Contains("vulnerability"))
+                    {
+                        return;
+                    }
 
                     if (kind == WorkspaceDiagnosticKind.Failure && !parsedOptions.ignoreMsBuildErrors)
                         returnCode = 2;
