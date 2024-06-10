@@ -256,13 +256,13 @@ namespace SecurityCodeScan.Tool
 
             if (parsedOptions.includeWarnings.Any() && parsedOptions.excludeWarnings.Any())
             {
-                LogError(false, "\nOnly --excl-warn or --incl-warn should be specified.\n");
+                LogError(false, "\nOnly --excl-warn or --incl-warn should be specified.\n", true);
                 parsedOptions.shouldShowHelp = true;
             }
 
             if (parsedOptions.excludeProjects.Any() && parsedOptions.includeProjects.Any())
             {
-                LogError(false, "\nOnly --excl-proj or --incl-proj should be specified.\n");
+                LogError(false, "\nOnly --excl-proj or --incl-proj should be specified.\n", true);
                 parsedOptions.shouldShowHelp = true;
             }
 
@@ -360,13 +360,40 @@ namespace SecurityCodeScan.Tool
                             return;
                         }
                     }
-
-                    LogError(kind == WorkspaceDiagnosticKind.Failure, e.Diagnostic.Message);
+                    
                     // ignore vulnerable packages MsBuild failures, just show the error message in all cases
-                    if (e.Diagnostic.Message.Contains("vulnerability"))
+                    if (kind == WorkspaceDiagnosticKind.Failure && e.Diagnostic.Message.Contains("vulnerability"))
                     {
+                        string pattern = @"Msbuild failed when processing the file '(?<artifactLocation>[^']*)' with message: Package '(?<vulnerablePackage>[^']*)' (?<version>[\d\.]+) has a known (?<level>[^ ]*) severity vulnerability, (?<cveLink>https?:\/\/[^\s]+)";
+
+                        Regex regex = new Regex(pattern);
+                        Match m = regex.Match(e.Diagnostic.Message);
+
+                        if (m.Success)
+                        {                      
+                            string artifactLocation = m.Groups["artifactLocation"].Value;
+                            string vulnerablePackage = m.Groups["vulnerablePackage"].Value;
+                            string version = m.Groups["version"].Value;
+                            string level = m.Groups["level"].Value;
+                            string cveLink = m.Groups["cveLink"].Value;
+
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Package with a known vulnerability found:");
+
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"Project Location: {artifactLocation}");
+                            Console.WriteLine($"Vulnerable Package: {vulnerablePackage}");
+                            Console.WriteLine($"Version: {version}");
+                            Console.WriteLine($"Severity: {level.ToUpperInvariant()}");
+                            Console.WriteLine($"CVE Link: {cveLink}");
+                            Console.WriteLine();
+
+                            Console.ForegroundColor = ConsoleColor.White;
+                        }
                         return;
                     }
+
+                    LogError(kind == WorkspaceDiagnosticKind.Failure, e.Diagnostic.Message, true);
 
                     if (kind == WorkspaceDiagnosticKind.Failure && !parsedOptions.ignoreMsBuildErrors)
                         returnCode = 2;
@@ -414,11 +441,12 @@ namespace SecurityCodeScan.Tool
 
                 var analyzers = new List<DiagnosticAnalyzer>();
                 LoadAnalyzers(parsedOptions, analyzers);
+                Console.WriteLine($"Loaded {analyzers.Count} security analyzers");
 
                 (var count, var errors, _) = await GetDiagnostics(parsedOptions, versionString, projects, analyzers).ConfigureAwait(false);
 
                 var elapsed = DateTime.Now - startTime;
-                if (parsedOptions.verbose)
+                //if (parsedOptions.verbose)
                     Console.WriteLine($@"Completed in {elapsed:hh\:mm\:ss}");
                 Console.WriteLine($@"Found {count} security issues.");
 
@@ -440,14 +468,18 @@ namespace SecurityCodeScan.Tool
             }
         }
 
-        private static void LogError(bool error, string msg)
+        private static void LogError(bool error, string msg, bool verbose)
         {
             if (error)
                 Console.ForegroundColor = ConsoleColor.Red;
             else
                 Console.ForegroundColor = ConsoleColor.Yellow;
 
-            Console.Error.WriteLine(msg);
+            if (error || verbose)
+            {
+                Console.Error.WriteLine(msg);
+            }
+            
             Console.ForegroundColor = ConsoleColor.White;
         }
 
@@ -556,7 +588,7 @@ namespace SecurityCodeScan.Tool
 
                 if (!d.Id.StartsWith("SCS"))
                 {
-                    LogError(d.Severity == DiagnosticSeverity.Error, d.ToString());
+                    LogError(d.Severity == DiagnosticSeverity.Error, d.ToString(), parsedOptions.verbose);
                     if (d.Severity == DiagnosticSeverity.Error)
                         ++errors;
                     else
